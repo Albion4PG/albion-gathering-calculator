@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Albion Gathering Fame Calculator</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #f7f7f5;
+    color: #1a1a1a;
+  }
+  header {
+    padding: 20px 28px 12px;
+    border-bottom: 1px solid #e2e2df;
+    background: #fff;
+  }
+  header h1 { margin: 0 0 4px; font-size: 1.4rem; }
+  header p { margin: 0; color: #666; font-size: 0.9rem; }
+  .badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    background: #fef3c7;
+    color: #92400e;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  main {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 24px;
+    padding: 24px 28px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .panel {
+    background: #fff;
+    border: 1px solid #e2e2df;
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+  .panel h2 { font-size: 0.95rem; margin: 0 0 14px; }
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+    color: #333;
+  }
+  .field .val { font-variant-numeric: tabular-nums; color: #2563eb; font-weight: 600; }
+  .field input[type="range"] { width: 100%; }
+  select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+  button#reset {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #f3f3f1;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  button#reset:hover { background: #eaeae7; }
+  svg#chart {
+    width: 100%;
+    height: 420px;
+    background: #fff;
+  }
+  .gridline { stroke: #eee; stroke-width: 1; }
+  .axis-line { stroke: #999; stroke-width: 1; }
+  .axis-label { font-size: 10px; fill: #666; }
+  .axis-title { font-size: 11px; fill: #444; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 5px 10px; border-bottom: 1px solid #eee; }
+  th { color: #666; font-weight: 600; }
+  td:last-child, th:last-child { text-align: right; }
+  footer {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 28px 32px;
+    font-size: 0.8rem;
+    color: #888;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Albion Gathering Fame Calculator <span class="badge">dev build — single zone</span></h1>
+  <p>Fame/hour vs. minimum-value filter threshold. Currently wired to one zone (Outlands Z7) while the interactive pieces are validated — multi-zone selection comes next.</p>
+</header>
+
+<main>
+  <div class="panel">
+    <h2>Zone: Outlands — Z7</h2>
+    <div class="field">
+      <label for="quality">Quality</label>
+      <select id="quality" autocomplete="off">
+        <option value="Q1">Q1</option>
+        <option value="Q2">Q2</option>
+        <option value="Q3" selected>Q3</option>
+        <option value="Q4">Q4</option>
+        <option value="Q5">Q5</option>
+        <option value="Q6">Q6</option>
+      </select>
+    </div>
+
+    <h2 style="margin-top:20px">Assumptions</h2>
+    <div class="field">
+      <label for="search_time">Search time <span class="val" id="search_time_val"></span></label>
+      <input type="range" id="search_time" min="0" max="60" step="1" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="mob_proportion">Mob proportion <span class="val" id="mob_proportion_val"></span></label>
+      <input type="range" id="mob_proportion" min="0" max="100" step="1" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="charge_fraction_enchanted">Charge fraction (enchanted) <span class="val" id="charge_fraction_enchanted_val"></span></label>
+      <input type="range" id="charge_fraction_enchanted" min="0" max="100" step="1" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="kill_time">Kill time <span class="val" id="kill_time_val"></span></label>
+      <input type="range" id="kill_time" min="0" max="60" step="1" autocomplete="off" />
+    </div>
+    <button id="reset" type="button">Reset to zone defaults</button>
+  </div>
+
+  <div class="panel">
+    <svg id="chart" viewBox="0 0 800 420"></svg>
+    <table id="table"></table>
+  </div>
+</main>
+
+<footer>
+  Dev build — game-data constants are fixed and not user-editable; only the four assumption parameters above are adjustable. See <a href="docs/spec.md">docs/spec.md</a> for the full model.
+</footer>
+
+<script type="module" src="src/app.mjs"></script>
+</body>
+</html>
