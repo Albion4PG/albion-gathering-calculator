@@ -71,7 +71,11 @@ export function computeThresholdSweep(states, search_time) {
       search_time + qualifying.reduce((sum, s) => sum + s.weight * s.blendedTime, 0);
     const famePerHour = (famePerEncounter / timePerEncounter) * 3600;
 
-    const label = atTau.map((s) => `${s.tier}.${s.enchant}`).join('/');
+    const label = atTau
+      .slice()
+      .sort((a, b) => a.tier.localeCompare(b.tier))
+      .map((s) => `${s.tier}.${s.enchant}`)
+      .join('/');
 
     return { tau, label, famePerHour, famePerEncounter, timePerEncounter };
   });

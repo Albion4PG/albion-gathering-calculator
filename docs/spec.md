@@ -6,6 +6,11 @@ from real game data plus a small set of explicitly-labeled assumptions
 the user can tune. No game-data values are editable — only the
 assumption parameters listed in Section 3.
 
+All game-data constants below are sourced programmatically from raw
+client XML files (see [`gamedata/README.md`](../gamedata/README.md)) via
+`scripts/build_gamedata.py`, not hand-transcribed — except Roads node
+weights, which are not yet re-derived that way (see that README).
+
 ## 1. The Model (formula)
 
 For a given zone and a given filter threshold `τ` (a per-unit famevalue
