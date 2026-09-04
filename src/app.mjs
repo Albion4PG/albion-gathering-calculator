@@ -1,79 +1,215 @@
-// Minimal single-zone UI increment: Z7 only, to validate the interactive
-// pieces (quality select, assumption sliders, live chart) before wiring up
-// the full multi-zone checkbox UI from spec Section 4.
+// Multi-zone UI: checkbox zone selector (grouped Royal/Outlands/Roads),
+// per-zone expandable config panel (4 assumption sliders + reset), one
+// chart line per checked zone. See docs/spec.md Section 4.
 
 import { ZONES, CATEGORY_DEFAULTS } from './data.mjs';
 import { computeZoneSweep } from './model.mjs';
 import { renderLineChart, SERIES_COLORS } from './chart.mjs';
 
-const zoneDef = ZONES.OUT_Z7;
-const defaults = CATEGORY_DEFAULTS.outlands;
+const GROUP_LABELS = { royal: 'Royal', outlands: 'Outlands', roads: 'Roads' };
+const GROUP_ORDER = ['royal', 'outlands', 'roads'];
+const QUALITIES = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
 
-const state = {
-  quality: 'Q3',
-  assumptions: { ...defaults },
-};
+const zoneIds = Object.keys(ZONES);
+
+// Colors are assigned by position among the *currently checked* zones, not
+// a zone's fixed global index -- with 13 zones and a 10-color palette, a
+// fixed-index assignment collides (e.g. index 1 and index 11 both map to
+// color 1). Recomputed fresh each render so all three render functions
+// (zone list, zone panels, chart) agree.
+function checkedZoneIds() {
+  return zoneIds.filter((id) => zoneState[id].checked);
+}
+function colorOf(zoneId, checkedIds) {
+  const idx = checkedIds.indexOf(zoneId);
+  return idx === -1 ? '#999' : SERIES_COLORS[idx % SERIES_COLORS.length];
+}
+
+// Per-zone UI state, seeded with category defaults. Persists across
+// check/uncheck so toggling a zone off and back on doesn't lose tweaks.
+const zoneState = {};
+for (const id of zoneIds) {
+  const def = ZONES[id];
+  zoneState[id] = {
+    checked: false,
+    expanded: true,
+    quality: def.requiresQuality ? 'Q3' : undefined,
+    assumptions: { ...CATEGORY_DEFAULTS[def.group] },
+  };
+}
 
 const els = {
-  quality: document.getElementById('quality'),
-  searchTime: document.getElementById('search_time'),
-  mobProportion: document.getElementById('mob_proportion'),
-  chargeFraction: document.getElementById('charge_fraction_enchanted'),
-  killTime: document.getElementById('kill_time'),
-  searchTimeVal: document.getElementById('search_time_val'),
-  mobProportionVal: document.getElementById('mob_proportion_val'),
-  chargeFractionVal: document.getElementById('charge_fraction_enchanted_val'),
-  killTimeVal: document.getElementById('kill_time_val'),
-  reset: document.getElementById('reset'),
+  zoneList: document.getElementById('zoneList'),
+  zonePanels: document.getElementById('zonePanels'),
   chart: document.getElementById('chart'),
-  table: document.getElementById('table'),
+  legend: document.getElementById('legend'),
 };
 
-function readInputs() {
-  state.quality = els.quality.value;
-  state.assumptions.search_time = Number(els.searchTime.value);
-  state.assumptions.mob_proportion = Number(els.mobProportion.value) / 100;
-  state.assumptions.charge_fraction_enchanted = Number(els.chargeFraction.value) / 100;
-  state.assumptions.kill_time = Number(els.killTime.value);
+// --- zone selector -----------------------------------------------------
+
+function renderZoneList() {
+  const checkedIds = checkedZoneIds();
+  els.zoneList.innerHTML = GROUP_ORDER.map((group) => {
+    const ids = zoneIds.filter((id) => ZONES[id].group === group);
+    const rows = ids.map((id) => {
+      const def = ZONES[id];
+      const s = zoneState[id];
+      const qualitySelect = def.requiresQuality
+        ? `<select class="quality-select" data-zone="${id}" data-role="quality" autocomplete="off">
+            ${QUALITIES.map((q) => `<option value="${q}" ${q === s.quality ? 'selected' : ''}>${q}</option>`).join('')}
+          </select>`
+        : '';
+      return `
+        <div class="zone-row ${s.checked ? 'checked' : ''}">
+          <span class="swatch" style="background:${colorOf(id, checkedIds)}"></span>
+          <label>
+            <input type="checkbox" data-zone="${id}" data-role="check" ${s.checked ? 'checked' : ''} autocomplete="off" />
+            ${def.name}
+          </label>
+          ${qualitySelect}
+        </div>`;
+    }).join('');
+    return `<div class="zone-group"><h3 class="zone-group-title">${GROUP_LABELS[group]}</h3>${rows}</div>`;
+  }).join('');
 }
 
-function syncReadouts() {
-  els.searchTimeVal.textContent = `${els.searchTime.value}s`;
-  els.mobProportionVal.textContent = `${els.mobProportion.value}%`;
-  els.chargeFractionVal.textContent = `${els.chargeFraction.value}%`;
-  els.killTimeVal.textContent = `${els.killTime.value}s`;
+els.zoneList.addEventListener('change', (e) => {
+  const zoneId = e.target.dataset.zone;
+  if (!zoneId) return;
+  if (e.target.dataset.role === 'check') {
+    zoneState[zoneId].checked = e.target.checked;
+    if (e.target.checked) zoneState[zoneId].expanded = true;
+    renderAll();
+  } else if (e.target.dataset.role === 'quality') {
+    zoneState[zoneId].quality = e.target.value;
+    renderAll();
+  }
+});
+
+// --- per-zone config panels ---------------------------------------------
+
+function renderZonePanels() {
+  const checkedIds = checkedZoneIds();
+
+  if (checkedIds.length === 0) {
+    els.zonePanels.innerHTML = '<div class="empty-hint">Check a zone on the left to configure it and see it on the chart.</div>';
+    return;
+  }
+
+  els.zonePanels.innerHTML = checkedIds.map((id) => {
+    const def = ZONES[id];
+    const s = zoneState[id];
+    const a = s.assumptions;
+    const sweep = computeZoneSweep(def, s.quality, a);
+
+    return `
+      <div class="zone-card ${s.expanded ? '' : 'collapsed'}" data-zone="${id}">
+        <div class="zone-card-header" data-role="toggle" data-zone="${id}">
+          <span class="swatch" style="background:${colorOf(id, checkedIds)}"></span>
+          <span class="name">${def.name}${def.requiresQuality ? ` (${s.quality})` : ''}</span>
+          <button type="button" class="zone-card-reset" data-role="reset" data-zone="${id}">Reset defaults</button>
+          <span class="chevron">&#9660;</span>
+        </div>
+        <div class="zone-card-body">
+          <div class="zone-card-grid">
+            <div class="field">
+              <label>Search time <span class="val" data-readout="search_time">${a.search_time}s</span></label>
+              <input type="range" min="0" max="60" step="1" value="${a.search_time}" data-zone="${id}" data-param="search_time" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label>Mob proportion <span class="val" data-readout="mob_proportion">${Math.round(a.mob_proportion * 100)}%</span></label>
+              <input type="range" min="0" max="100" step="1" value="${Math.round(a.mob_proportion * 100)}" data-zone="${id}" data-param="mob_proportion" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label>Charge fraction (enchanted) <span class="val" data-readout="charge_fraction_enchanted">${Math.round(a.charge_fraction_enchanted * 100)}%</span></label>
+              <input type="range" min="0" max="100" step="1" value="${Math.round(a.charge_fraction_enchanted * 100)}" data-zone="${id}" data-param="charge_fraction_enchanted" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label>Kill time <span class="val" data-readout="kill_time">${a.kill_time}s</span></label>
+              <input type="range" min="0" max="60" step="1" value="${a.kill_time}" data-zone="${id}" data-param="kill_time" autocomplete="off" />
+            </div>
+          </div>
+          <table class="mini">
+            <thead><tr><th>Threshold</th><th>Label</th><th>Fame/hour</th></tr></thead>
+            <tbody>${sweep.map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`).join('')}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }).join('');
 }
 
-function render() {
-  readInputs();
-  syncReadouts();
+els.zonePanels.addEventListener('input', (e) => {
+  const zoneId = e.target.dataset.zone;
+  const param = e.target.dataset.param;
+  if (!zoneId || !param) return;
 
-  const sweep = computeZoneSweep(zoneDef, state.quality, state.assumptions);
-  renderLineChart(els.chart, [{ name: zoneDef.name, color: SERIES_COLORS[0], sweep }]);
+  const raw = Number(e.target.value);
+  const value = param === 'mob_proportion' || param === 'charge_fraction_enchanted' ? raw / 100 : raw;
+  zoneState[zoneId].assumptions[param] = value;
 
-  els.table.innerHTML = `
-    <thead><tr><th>Threshold</th><th>Label</th><th>Fame/hour</th></tr></thead>
-    <tbody>${sweep.map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`).join('')}</tbody>
-  `;
+  // Live-update just this card's readout/table and the chart, without a
+  // full re-render (avoids fighting focus/scroll on the slider being dragged).
+  const card = els.zonePanels.querySelector(`.zone-card[data-zone="${zoneId}"]`);
+  const readout = card.querySelector(`[data-readout="${param}"]`);
+  readout.textContent = param === 'mob_proportion' || param === 'charge_fraction_enchanted' ? `${raw}%` : `${raw}s`;
+  const def = ZONES[zoneId];
+  const s = zoneState[zoneId];
+  const sweep = computeZoneSweep(def, s.quality, s.assumptions);
+  card.querySelector('table.mini tbody').innerHTML = sweep
+    .map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`)
+    .join('');
+
+  renderChart();
+});
+
+els.zonePanels.addEventListener('click', (e) => {
+  const role = e.target.dataset.role;
+  const zoneId = e.target.dataset.zone;
+  if (!zoneId) return;
+
+  if (role === 'reset') {
+    const def = ZONES[zoneId];
+    zoneState[zoneId].assumptions = { ...CATEGORY_DEFAULTS[def.group] };
+    renderAll();
+  } else if (role === 'toggle') {
+    zoneState[zoneId].expanded = !zoneState[zoneId].expanded;
+    renderAll();
+  }
+});
+
+// --- chart ---------------------------------------------------------------
+
+function renderChart() {
+  const checkedIds = checkedZoneIds();
+  const seriesList = checkedIds.map((id) => {
+    const def = ZONES[id];
+    const s = zoneState[id];
+    return {
+      name: `${def.name}${def.requiresQuality ? ` (${s.quality})` : ''}`,
+      color: colorOf(id, checkedIds),
+      sweep: computeZoneSweep(def, s.quality, s.assumptions),
+    };
+  });
+  renderLineChart(els.chart, seriesList);
+
+  els.legend.innerHTML = seriesList
+    .map((s) => `<span class="legend-item"><span class="legend-swatch" style="background:${s.color}"></span>${s.name}</span>`)
+    .join('');
 }
 
-function resetDefaults() {
-  els.searchTime.value = defaults.search_time;
-  els.mobProportion.value = defaults.mob_proportion * 100;
-  els.chargeFraction.value = defaults.charge_fraction_enchanted * 100;
-  els.killTime.value = defaults.kill_time;
-  render();
+// --- top-level render ------------------------------------------------------
+
+function renderAll() {
+  renderZoneList();
+  renderZonePanels();
+  renderChart();
 }
 
-[els.quality, els.searchTime, els.mobProportion, els.chargeFraction, els.killTime].forEach((el) =>
-  el.addEventListener('input', render)
-);
-els.reset.addEventListener('click', resetDefaults);
+renderAll();
 
-resetDefaults();
-
-// Chromium restores previously-set range/select values on reload/back-forward
-// navigation, sometimes after this module has already run and set the real
-// defaults. Reassert once more after 'load' to win that race.
-window.addEventListener('load', resetDefaults);
-window.addEventListener('pageshow', resetDefaults);
+// Chromium restores checkbox/select state left over from a prior load on
+// reload/back-forward, sometimes after this module has already run. Since
+// our own state object is the source of truth here (not the DOM), just
+// re-render from it once more after load to override any such restoration.
+window.addEventListener('load', renderAll);
+window.addEventListener('pageshow', renderAll);
