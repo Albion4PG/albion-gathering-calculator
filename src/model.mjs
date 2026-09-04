@@ -16,8 +16,7 @@ export function buildZoneStates(zoneDef, quality, assumptions) {
   const { mob_proportion, charge_fraction_enchanted, kill_time } = assumptions;
   const gff = zoneDef.getGff(quality);
 
-  const modeledWeight = Object.values(zoneDef.nodeWeights).reduce((a, b) => a + b, 0);
-  const totalWeight = modeledWeight + (zoneDef.outOfScopeWeight || 0);
+  const totalWeight = Object.values(zoneDef.nodeWeights).reduce((a, b) => a + b, 0);
 
   const states = [];
   for (const tier of Object.keys(zoneDef.nodeWeights)) {

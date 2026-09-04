@@ -80,10 +80,10 @@ See `src/data.mjs` `ZONES`. Royal Red is split into two selectable
 zone entries (`ROYAL_RED_T6` / `ROYAL_RED_T7`) rather than picking one
 of the two nodeweight variants that were both observed in source data.
 
-Outlands Z5 includes T2/T3 node-count mass as `outOfScopeWeight` — it
-dilutes `P(tier)` for the modeled T4/T5 tiers (representing real
-node encounters you'd skip) without ever appearing as a qualifying
-state, since T2/T3 have no famevalue/enchant data.
+Outlands Z5's source data also lists T2/T3 node counts (140/240), but
+per Section 5 (T3-and-below out of scope) they're dropped entirely
+rather than folded into the P(tier) denominator — `P(tier)` for Z5
+normalizes over its T4/T5 weights alone.
 
 ## 3. User-Tunable Assumption Parameters (per zone)
 

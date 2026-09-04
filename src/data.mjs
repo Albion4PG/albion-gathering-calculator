@@ -68,11 +68,10 @@ export const MISTS_ENCHANT_DEFAULT = {
 };
 
 // --- Zone definitions -------------------------------------------------
-// nodeWeights: modeled tiers only (T4+). outOfScopeWeight: node-count mass
-// from tiers below T4 (e.g. T2/T3 in Z5) that still consume search_time
-// via the total-weight denominator but never qualify at any threshold,
-// since they have no famevalue/enchant data. This keeps P(tier) correctly
-// diluted by "junk" encounters without needing fake states for them.
+// nodeWeights: modeled tiers only (T4+). Z5's source data also lists T2/T3
+// node counts (140/240), but T3-and-below is out of project scope (spec
+// Section 5) -- they're dropped entirely rather than folded into the
+// denominator, so P(tier) for Z5 normalizes over its T4/T5 weights alone.
 
 export const ZONES = {
   ROYAL_BLUE: {
@@ -131,8 +130,7 @@ export const ZONES = {
     name: 'Outlands — Z5',
     group: 'outlands',
     requiresQuality: true,
-    nodeWeights: { T4: 360, T5: 480 },
-    outOfScopeWeight: 140 + 240, // T2 + T3, out of project scope
+    nodeWeights: { T4: 360, T5: 480 }, // T2/T3 (140/240) dropped -- out of scope
     getGff: (q) => GATHERING_FAME_FACTOR.outlands[q],
     getEnchantTable: (tier, q) => OUTLANDS_ENCHANT.T4T5_EXPLICIT[q],
   },
