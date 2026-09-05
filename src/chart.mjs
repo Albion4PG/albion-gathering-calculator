@@ -6,14 +6,25 @@
 
 const MARGIN = { top: 20, right: 24, bottom: 64, left: 72 };
 
+// One entry per zone (13 total) so each zone gets a fixed, unique color
+// regardless of which other zones are checked -- not reassigned by
+// check-order, so a zone's color stays recognizable across sessions. Used
+// for the connecting line (zone identity) and the legend swatch.
 export const SERIES_COLORS = [
   '#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed',
   '#0891b2', '#db2777', '#65a30d', '#4f46e5', '#ea580c',
+  '#0d9488', '#a21caf', '#ca8a04',
 ];
+
+// Marker fill = Albion's own tier-color convention. Marker edge = zone
+// category (Outlands/Roads called out explicitly; Royal gets a neutral
+// edge so T8's white fill still shows up against the white chart background).
+const TIER_FILL = { T4: '#4887B0', T5: '#B73C38', T6: '#E48435', T7: '#E5BF3B', T8: '#FFFFFF' };
+const GROUP_EDGE = { outlands: '#000000', roads: '#808080', royal: '#94a3b8' };
 
 /**
  * @param {SVGSVGElement} svgEl - target <svg>, must already have width/height set via viewBox
- * @param {Array<{name:string, color:string, sweep:Array<{tau:number,label:string,famePerHour:number}>}>} seriesList
+ * @param {Array<{name:string, color:string, group:string, sweep:Array<{tau:number,label:string,tier:string,famePerHour:number}>}>} seriesList
  */
 export function renderLineChart(svgEl, seriesList) {
   const vb = svgEl.viewBox.baseVal;
@@ -58,9 +69,13 @@ export function renderLineChart(svgEl, seriesList) {
   const seriesSvg = seriesList.map((s, i) => {
     if (s.sweep.length === 0) return '';
     const color = s.color || SERIES_COLORS[i % SERIES_COLORS.length];
+    const edge = GROUP_EDGE[s.group] || '#333';
     const pts = s.sweep.map((p) => `${xFor(p.tau)},${yFor(p.famePerHour)}`).join(' ');
     const dots = s.sweep
-      .map((p) => `<circle cx="${xFor(p.tau)}" cy="${yFor(p.famePerHour)}" r="3.5" fill="${color}"><title>${escapeXml(s.name)} — ${escapeXml(p.label)}: ${Math.round(p.famePerHour).toLocaleString()} fame/hr</title></circle>`)
+      .map((p) => {
+        const fill = TIER_FILL[p.tier] || color;
+        return `<circle cx="${xFor(p.tau)}" cy="${yFor(p.famePerHour)}" r="4" fill="${fill}" stroke="${edge}" stroke-width="1.5"><title>${escapeXml(s.name)} — ${escapeXml(p.label)}: ${Math.round(p.famePerHour).toLocaleString()} fame/hr</title></circle>`;
+      })
       .join('');
     return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5" />${dots}`;
   }).join('');

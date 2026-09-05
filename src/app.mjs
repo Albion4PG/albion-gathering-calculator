@@ -12,16 +12,16 @@ const QUALITIES = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
 
 const zoneIds = Object.keys(ZONES);
 
-// Colors are assigned by position among the *currently checked* zones, not
-// a zone's fixed global index -- with 13 zones and a 10-color palette, a
-// fixed-index assignment collides (e.g. index 1 and index 11 both map to
-// color 1). Recomputed fresh each render so all three render functions
-// (zone list, zone panels, chart) agree.
 function checkedZoneIds() {
   return zoneIds.filter((id) => zoneState[id].checked);
 }
-function colorOf(zoneId, checkedIds) {
-  const idx = checkedIds.indexOf(zoneId);
+
+// Fixed per-zone color, keyed by each zone's position in the full 13-zone
+// list -- not by check-order, so a zone's color stays the same regardless
+// of what else is checked. SERIES_COLORS has exactly one entry per zone,
+// so this never collides.
+function colorOf(zoneId) {
+  const idx = zoneIds.indexOf(zoneId);
   return idx === -1 ? '#999' : SERIES_COLORS[idx % SERIES_COLORS.length];
 }
 
@@ -61,7 +61,7 @@ function renderZoneList() {
         : '';
       return `
         <div class="zone-row ${s.checked ? 'checked' : ''}">
-          <span class="swatch" style="background:${colorOf(id, checkedIds)}"></span>
+          <span class="swatch" style="background:${colorOf(id)}"></span>
           <label>
             <input type="checkbox" data-zone="${id}" data-role="check" ${s.checked ? 'checked' : ''} autocomplete="off" />
             ${def.name}
@@ -105,7 +105,7 @@ function renderZonePanels() {
     return `
       <div class="zone-card ${s.expanded ? '' : 'collapsed'}" data-zone="${id}">
         <div class="zone-card-header" data-role="toggle" data-zone="${id}">
-          <span class="swatch" style="background:${colorOf(id, checkedIds)}"></span>
+          <span class="swatch" style="background:${colorOf(id)}"></span>
           <span class="name">${def.name}${def.requiresQuality ? ` (${s.quality})` : ''}</span>
           <button type="button" class="zone-card-reset" data-role="reset" data-zone="${id}">Reset defaults</button>
           <span class="chevron">&#9660;</span>
@@ -186,7 +186,8 @@ function renderChart() {
     const s = zoneState[id];
     return {
       name: `${def.name}${def.requiresQuality ? ` (${s.quality})` : ''}`,
-      color: colorOf(id, checkedIds),
+      color: colorOf(id),
+      group: def.group,
       sweep: computeZoneSweep(def, s.quality, s.assumptions),
     };
   });

@@ -71,13 +71,13 @@ export function computeThresholdSweep(states, search_time) {
       search_time + qualifying.reduce((sum, s) => sum + s.weight * s.blendedTime, 0);
     const famePerHour = (famePerEncounter / timePerEncounter) * 3600;
 
-    const label = atTau
-      .slice()
-      .sort((a, b) => a.tier.localeCompare(b.tier))
-      .map((s) => `${s.tier}.${s.enchant}`)
-      .join('/');
+    const sortedAtTau = atTau.slice().sort((a, b) => a.tier.localeCompare(b.tier));
+    const label = sortedAtTau.map((s) => `${s.tier}.${s.enchant}`).join('/');
+    // Lowest tier among ties, for marker-fill color when a threshold has
+    // more than one state tied on famevalue (e.g. "T5.1/T6.0").
+    const tier = sortedAtTau[0].tier;
 
-    return { tau, label, famePerHour, famePerEncounter, timePerEncounter };
+    return { tau, label, tier, famePerHour, famePerEncounter, timePerEncounter };
   });
 }
 
