@@ -4,7 +4,7 @@
 // belong to its own zone's real threshold range — no padding/interpolation
 // into slots it has no data for (per spec Section 1/4).
 
-const MARGIN = { top: 20, right: 24, bottom: 64, left: 72 };
+const MARGIN = { top: 20, right: 24, bottom: 76, left: 84 };
 
 // One entry per zone (13 total) so each zone gets a fixed, unique color
 // regardless of which other zones are checked -- not reassigned by
@@ -74,10 +74,10 @@ export function renderLineChart(svgEl, seriesList) {
     const dots = s.sweep
       .map((p) => {
         const fill = TIER_FILL[p.tier] || color;
-        return `<circle cx="${xFor(p.tau)}" cy="${yFor(p.famePerHour)}" r="4" fill="${fill}" stroke="${edge}" stroke-width="1.5"><title>${escapeXml(s.name)} — ${escapeXml(p.label)}: ${Math.round(p.famePerHour).toLocaleString()} fame/hr</title></circle>`;
+        return `<circle cx="${xFor(p.tau)}" cy="${yFor(p.famePerHour)}" r="6" fill="${fill}" stroke="${edge}" stroke-width="2"><title>${escapeXml(s.name)} — ${escapeXml(p.label)}: ${Math.round(p.famePerHour).toLocaleString()} fame/hr</title></circle>`;
       })
       .join('');
-    return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5" />${dots}`;
+    return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="3.5" />${dots}`;
   }).join('');
 
   svgEl.innerHTML = `
