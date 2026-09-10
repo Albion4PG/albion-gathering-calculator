@@ -18,7 +18,7 @@ const TIER_FILL = { T4: '#4887B0', T5: '#B73C38', T6: '#E48435', T7: '#E5BF3B', 
 
 const zoneIds = Object.keys(ZONES);
 
-// Fixed per-zone color, keyed by each zone's position in the full 13-zone
+// Fixed per-zone color, keyed by each zone's position in the full 12-zone
 // list -- not by selection/add-order, so a zone's color stays the same
 // regardless of what else is selected/added. SERIES_COLORS has exactly one
 // entry per zone, so this never collides.

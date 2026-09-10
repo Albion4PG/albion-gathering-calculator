@@ -56,9 +56,15 @@ function resolveEnchant(tableName, tier) {
 // Section 5) — dropped entirely rather than folded into the denominator.
 //
 // Royal node weights don't depend on color, only on which "declared tier"
-// preset a color draws from: Blue=T5, Yellow/Red(T6-declared)/Red2=T6,
+// preset a color draws from: Blue=T5, Yellow/Red(T6-declared)=T6,
 // Red(T7-declared)=T7 — confirmed by summing each T{n}_FR_ROY_WLD preset
 // and matching exactly against every color's previously-known weights.
+//
+// A second T6 red-danger enchant table ("RED2") also exists in the raw
+// data and was briefly exposed as its own zone ("Royal — Red2"), but only
+// 8 of the 63 T6/T7 red-danger clusters in world.xml reference it (vs. 55
+// on "RED") — a small enough minority that it was dropped in favor of just
+// the one representative Red entry per declared tier.
 
 const ROYAL_W = GAMEDATA.ROYAL_NODE_WEIGHTS_BY_DECLARED_TIER;
 const OUT_W = GAMEDATA.OUTLANDS_NODE_WEIGHTS_BY_DECLARED_TIER;
@@ -100,15 +106,6 @@ export const ZONES = {
     nodeWeights: ROYAL_W[7],
     getGff: () => GATHERING_FAME_FACTOR.royal,
     getEnchantTable: (tier) => resolveEnchant('RED', tier),
-  },
-  ROYAL_RED2: {
-    id: 'ROYAL_RED2',
-    name: 'Royal — Red2',
-    group: 'royal',
-    requiresQuality: false,
-    nodeWeights: ROYAL_W[6],
-    getGff: () => GATHERING_FAME_FACTOR.royal,
-    getEnchantTable: (tier) => resolveEnchant('RED2', tier),
   },
 
   OUT_Z5: {
