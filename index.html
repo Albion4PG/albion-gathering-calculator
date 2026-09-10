@@ -117,7 +117,10 @@
   .axis-title { font-size: 14px; fill: #444; font-weight: 600; }
   .legend { display: flex; flex-wrap: wrap; gap: 12px 18px; margin-top: 10px; font-size: 0.8rem; }
   .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-item.preview { color: #888; font-style: italic; }
   .legend-swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+
+  .preview-hint { margin: 0 0 10px; font-size: 0.78rem; color: #888; font-style: italic; }
 
   /* --- per-zone config cards --- */
   #zonePanels { margin-top: 20px; display: flex; flex-direction: column; gap: 14px; }
@@ -127,15 +130,11 @@
     align-items: center;
     gap: 10px;
     padding: 12px 16px;
-    cursor: pointer;
     background: #fafaf9;
   }
   .zone-card-header .swatch { width: 11px; height: 11px; border-radius: 50%; flex: none; }
   .zone-card-header .name { font-weight: 600; font-size: 0.9rem; flex: 1; }
-  .zone-card-header .chevron { transition: transform 0.15s; color: #888; font-size: 0.75rem; }
-  .zone-card.collapsed .chevron { transform: rotate(-90deg); }
   .zone-card-body { padding: 16px; border-top: 1px solid #eee; }
-  .zone-card.collapsed .zone-card-body { display: none; }
   .zone-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
   .zone-card-reset {
     padding: 5px 10px;
