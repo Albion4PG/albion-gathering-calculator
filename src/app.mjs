@@ -87,7 +87,7 @@ function renderZoneList() {
         <div class="zone-row ${isSelected ? 'checked' : ''}">
           <span class="swatch" style="background:${colorOf(id)}"></span>
           <label>
-            <input type="radio" name="zoneSelect" data-zone="${id}" data-role="select" ${isSelected ? 'checked' : ''} autocomplete="off" />
+            <input type="checkbox" data-zone="${id}" data-role="select" ${isSelected ? 'checked' : ''} autocomplete="off" />
             ${def.name}
           </label>
           ${qualitySelect}
@@ -97,11 +97,15 @@ function renderZoneList() {
   }).join('');
 }
 
+// Checkboxes here behave like a single-select toggle group (only one zone
+// staged at a time), not independent checkboxes: checking one stages that
+// zone (and un-checks whichever was staged before, on re-render); unchecking
+// the currently-staged one clears staging/preview entirely.
 els.zoneList.addEventListener('change', (e) => {
   const zoneId = e.target.dataset.zone;
   if (!zoneId) return;
   if (e.target.dataset.role === 'select') {
-    selectedZoneId = zoneId;
+    selectedZoneId = e.target.checked ? zoneId : null;
     renderAll();
   } else if (e.target.dataset.role === 'quality') {
     zoneState[zoneId].quality = e.target.value;
@@ -226,6 +230,7 @@ els.zonePanels.addEventListener('click', (e) => {
       assumptions: { ...s.assumptions },
       shape,
     });
+    selectedZoneId = null;
     renderAll();
   }
 });
