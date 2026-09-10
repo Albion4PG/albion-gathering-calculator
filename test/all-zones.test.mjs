@@ -7,7 +7,7 @@
 // a new/changed zone entry produces NaN, a negative rate, an empty sweep,
 // or a threshold list that isn't the zone's own real values.
 
-import { ZONES, CATEGORY_DEFAULTS, ROAD_TYPES, defaultBuffs, combinedBuffMultiplier } from '../src/data.mjs';
+import { ZONES, CATEGORY_DEFAULTS, ROAD_TYPES, defaultBuffs, combinedBuffMultiplier, toolCanHarvest, toolTimeFactor } from '../src/data.mjs';
 import { computeZoneSweep } from '../src/model.mjs';
 
 const QUALITIES = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
@@ -91,6 +91,46 @@ for (const { def, quality, label } of variants) {
   const boosted = computeZoneSweep(def, 'Q3', assumptions, combinedBuffMultiplier(allOn));
   const allIncreased = boosted.every((p, i) => p.famePerHour > baseline[i].famePerHour);
   check(allIncreased, 'enabling all buffs did not strictly increase fame/hour at every threshold');
+}
+
+// Tool tier: access rule is "own base tier at any enchant, or the base
+// (unenchanted) state of the tier above at a time penalty, nothing else" --
+// per the exact matrix worked out with the user, not from harvestables.xml
+// (which has no enchant concept in its ToolModifier table at all).
+{
+  const cases = [
+    // [nodeTier, enchant, toolTier, expectHarvestable]
+    ['T5', 0, 'T6', true], ['T5', 3, 'T6', true],
+    ['T6', 0, 'T6', true], ['T6', 1, 'T6', true], ['T6', 2, 'T6', true], ['T6', 3, 'T6', true],
+    ['T7', 0, 'T6', true], // one tier up, unenchanted: reachable
+    ['T7', 1, 'T6', false], ['T7', 2, 'T6', false], ['T7', 3, 'T6', false], // one tier up, enchanted: not
+    ['T8', 0, 'T6', false], // two tiers up: never reachable
+    ['T8', 3, 'T8', true], // max tool tier is never locked out of its own tier
+  ];
+  for (const [nodeTier, enchant, toolTier, expected] of cases) {
+    const got = toolCanHarvest(nodeTier, enchant, toolTier);
+    check(got === expected, `toolCanHarvest(${nodeTier}, enchant=${enchant}, tool=${toolTier}) = ${got}, expected ${expected}`);
+  }
+
+  check(toolTimeFactor('T6', 'T6') === 1, 'same tier as tool should be 1x time');
+  check(toolTimeFactor('T7', 'T6') === 1.5, 'one tier above tool should be 1.5x time (slower)');
+  check(toolTimeFactor('T4', 'T8') === 0.25, 'far below tool tier should be fast (0.25x time)');
+
+  // Omitting toolTier entirely must be a true no-op (unlimited access, 1x),
+  // so every caller/test that predates this feature is unaffected.
+  check(toolCanHarvest('T8', 3, undefined) === true, 'omitted toolTier should never restrict access');
+  check(toolTimeFactor('T4', undefined) === 1, 'omitted toolTier should never change time');
+
+  // A restrictive tool tier must actually change computeZoneSweep's output
+  // (fewer/cheaper states reachable), not just be accepted and ignored.
+  const def = ZONES.ROYAL_RED_T7; // has T4-T7, so a T6 tool meaningfully restricts it
+  const assumptions = CATEGORY_DEFAULTS.royal;
+  const unrestricted = computeZoneSweep(def, undefined, assumptions, 1);
+  const restricted = computeZoneSweep(def, undefined, assumptions, 1, 'T6');
+  check(
+    restricted.length < unrestricted.length,
+    `T6 tool should exclude some threshold rows from a T4-T7 zone (unrestricted=${unrestricted.length}, restricted=${restricted.length})`
+  );
 }
 
 console.log(failures === 0 ? `\nAll ${variants.length} zone/variant combinations passed.` : `\n${failures} check(s) failed.`);

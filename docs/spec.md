@@ -127,6 +127,21 @@ other and with `gatheringfamefactor`.
 | Premium | on/off | 1.5 |
 | Learning Points | 1–5 destiny-board nodes (default 5) | `1 + (4/5) × nodes` — linear from 1x (0 nodes) to 5x (5 nodes) |
 
+### Universal tool tier (default T8)
+
+Also global like the buffs above, but affects node **access and speed**
+instead of fame — a tool can harvest any enchant level of its own tier
+or below, plus the *unenchanted* state of the tier one above it (at a
+1.5x time penalty), and nothing higher. Sourced from harvestables.xml's
+`<ToolModifier>` table (`tierdifference` = tool tier − node's base tier,
+giving a harvest-time multiplier; identical across all 5 resource types)
+for the speed factor — the enchant-based access cutoff itself isn't in
+that table (it has no concept of enchant at all) and was worked out with
+the user instead. States the tool can't reach at all are excluded from
+the sweep entirely, with the remaining states' weights renormalized to
+sum to 1 (a node you can't gather isn't part of your encounter mix). T8
+is both the default and the one tier that never excludes anything.
+
 ## 4. UI Structure
 
 - Zone selector: single-select checkboxes grouped Royal / Outlands / Roads
@@ -147,11 +162,11 @@ other and with `gatheringfamefactor`.
 - No editing of Section 2 constants anywhere in the UI.
 - Buffs panel: checkboxes (+ dropdowns for Pork Pie/Learning Points, see
   Section 3) to the right of the chart, applying globally to every entry
-  at once rather than being part of any single zone's config panel.
+  at once rather than being part of any single zone's config panel. Also
+  carries the universal Tool Tier dropdown (T4–T8, default T8).
 
 ## 5. Explicitly Out of Scope (v1)
 
-- Tool-tier constraints (assume full-access tools always)
 - Treasures
 - Off-road-vs-total-area correction for Roads
 - T3 and below

@@ -9,7 +9,7 @@
 
 import {
   ZONES, CATEGORY_DEFAULTS, ROAD_TYPES,
-  PORK_PIE_TIERS, PORK_PIE_MULTIPLIER, LEARNING_POINTS_MAX_NODES,
+  PORK_PIE_TIERS, PORK_PIE_MULTIPLIER, LEARNING_POINTS_MAX_NODES, TOOL_TIERS,
   defaultBuffs, combinedBuffMultiplier,
 } from './data.mjs';
 import { computeZoneSweep } from './model.mjs';
@@ -202,7 +202,7 @@ function renderZonePanels() {
   const def = ZONES[id];
   const s = zoneState[id];
   const a = s.assumptions;
-  const sweep = computeZoneSweep(resolvedZoneDef(id, s), s.quality, a, currentBuffMultiplier());
+  const sweep = computeZoneSweep(resolvedZoneDef(id, s), s.quality, a, currentBuffMultiplier(), buffs.toolTier);
 
   els.zonePanels.innerHTML = `
     <div class="zone-card" data-zone="${id}">
@@ -256,7 +256,7 @@ els.zonePanels.addEventListener('input', (e) => {
   const readout = card.querySelector(`[data-readout="${param}"]`);
   readout.textContent = param === 'mob_proportion' || param === 'charge_fraction_enchanted' ? `${raw}%` : `${raw}s`;
   const s = zoneState[zoneId];
-  const sweep = computeZoneSweep(resolvedZoneDef(zoneId, s), s.quality, s.assumptions, currentBuffMultiplier());
+  const sweep = computeZoneSweep(resolvedZoneDef(zoneId, s), s.quality, s.assumptions, currentBuffMultiplier(), buffs.toolTier);
   card.querySelector('table.mini tbody').innerHTML = sweep
     .map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`)
     .join('');
@@ -307,6 +307,7 @@ function trackAddToPlot(zoneId, s) {
     pork_pie: buffs.porkPie.enabled ? buffs.porkPie.tier : 'off',
     premium: buffs.premium.enabled,
     learning_points: buffs.learningPoints.enabled ? buffs.learningPoints.nodes : 0,
+    tool_tier: buffs.toolTier,
   });
 }
 
@@ -338,10 +339,22 @@ function renderBuffsPanel() {
         ${Array.from({ length: LEARNING_POINTS_MAX_NODES }, (_, i) => i + 1).map((n) => `<option value="${n}" ${n === buffs.learningPoints.nodes ? 'selected' : ''}>${n} node${n > 1 ? 's' : ''}</option>`).join('')}
       </select>
     </div>
+    <div class="buff-item tool-tier-item">
+      <label class="label-text">Tool tier ${infoIcon("Your gathering tool's tier. You can harvest any enchant level of your tool's own tier (or lower), plus the unenchanted version of the tier above it, at reduced speed. Anything higher is out of reach.")}</label>
+      <select data-role="tool-tier" autocomplete="off">
+        ${TOOL_TIERS.map((t) => `<option value="${t}" ${t === buffs.toolTier ? 'selected' : ''}>${t}</option>`).join('')}
+      </select>
+    </div>
   `;
 }
 
 els.buffsPanel.addEventListener('change', (e) => {
+  if (e.target.dataset.role === 'tool-tier') {
+    buffs.toolTier = e.target.value;
+    renderAll();
+    return;
+  }
+
   const buffName = e.target.dataset.buff;
   if (!buffName) return;
   if (e.target.dataset.role === 'buff-toggle') {
@@ -364,7 +377,7 @@ function renderChart() {
       color: colorOf(entry.zoneId),
       group: def.group,
       shape: entry.shape,
-      sweep: computeZoneSweep(resolvedZoneDef(entry.zoneId, entry), entry.quality, entry.assumptions, currentBuffMultiplier()),
+      sweep: computeZoneSweep(resolvedZoneDef(entry.zoneId, entry), entry.quality, entry.assumptions, currentBuffMultiplier(), buffs.toolTier),
     };
   });
 
@@ -378,7 +391,7 @@ function renderChart() {
       group: def.group,
       shape: previewShape,
       preview: true,
-      sweep: computeZoneSweep(resolvedZoneDef(selectedZoneId, s), s.quality, s.assumptions, currentBuffMultiplier()),
+      sweep: computeZoneSweep(resolvedZoneDef(selectedZoneId, s), s.quality, s.assumptions, currentBuffMultiplier(), buffs.toolTier),
     });
   }
 

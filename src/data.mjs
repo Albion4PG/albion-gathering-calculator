@@ -16,6 +16,42 @@ export const CHARGES = GAMEDATA.CHARGES;
 export const STATIC_TICK = GAMEDATA.STATIC_TICK;
 export const ELEMENTAL_TICK = GAMEDATA.ELEMENTAL_TICK;
 
+// --- Tool tier -------------------------------------------------------------
+// From harvestables.xml <ToolModifier> (identical across all 5 resource
+// types): a tool gets faster the more it out-tiers a node's *base* tier
+// (e.g. a T8 tool on a T4 node is 0.25x time), and can reach one base tier
+// above itself at a 1.5x time penalty.
+//
+// Access rule (confirmed with the user, not itself in harvestables.xml --
+// enchant isn't part of that table at all): a tool can harvest any enchant
+// level of its own base tier or below, but only the *unenchanted* state of
+// the one tier above it -- an enchanted node one tier up needs a tool that
+// actually matches that tier. Nothing 2+ base tiers above the tool is
+// reachable at any enchant level.
+export const TOOL_TIME_FACTOR = GAMEDATA.TOOL_TIME_FACTOR;
+export const TOOL_TIERS = ['T4', 'T5', 'T6', 'T7', 'T8'];
+
+function tierNum(tier) {
+  return Number(String(tier).replace('T', ''));
+}
+
+// null/undefined toolTier means "no tool-tier modeling" (unlimited access,
+// factor 1 always) -- the default when the parameter is omitted entirely,
+// so existing callers/tests that predate this feature are unaffected.
+export function toolCanHarvest(baseTier, enchant, toolTier) {
+  if (!toolTier) return true;
+  const base = tierNum(baseTier);
+  const tool = tierNum(toolTier);
+  if (base <= tool) return true;
+  return base === tool + 1 && enchant === 0;
+}
+
+export function toolTimeFactor(baseTier, toolTier) {
+  if (!toolTier) return 1;
+  const diff = Math.max(-1, Math.min(7, tierNum(toolTier) - tierNum(baseTier)));
+  return TOOL_TIME_FACTOR[String(diff)];
+}
+
 export const GATHERING_FAME_FACTOR = {
   royal: GAMEDATA.GATHERING_FAME_FACTOR.safe, // safe/yellow/orange/red all 1.0 in source
   outlands: {
@@ -229,6 +265,11 @@ export function defaultBuffs() {
     porkPie: { enabled: false, tier: 'T7' },
     premium: { enabled: false },
     learningPoints: { enabled: false, nodes: LEARNING_POINTS_MAX_NODES },
+    // Not a fame multiplier like the three above -- affects node access and
+    // harvest speed instead, via toolCanHarvest/toolTimeFactor. Always
+    // "on" (no enabled flag) since some tool is always in use; T8 is both
+    // the default and the one tier that never excludes anything.
+    toolTier: 'T8',
   };
 }
 

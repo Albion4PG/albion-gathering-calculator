@@ -1,7 +1,7 @@
 // Pure calculation logic — the formula from docs/spec.md Section 1.
 // No DOM/UI code here so it can be unit-tested headlessly (see test/).
 
-import { CHARGES, STATIC_TICK, ELEMENTAL_TICK, famevalue } from './data.mjs';
+import { CHARGES, STATIC_TICK, ELEMENTAL_TICK, famevalue, toolCanHarvest, toolTimeFactor } from './data.mjs';
 
 /**
  * Build the list of (tier, enchant) states for a zone at a given quality,
@@ -13,9 +13,14 @@ import { CHARGES, STATIC_TICK, ELEMENTAL_TICK, famevalue } from './data.mjs';
  * @param {number} [buffMultiplier=1] - combined Premium/Pork Pie/Learning
  *   Points multiplier (see data.mjs combinedBuffMultiplier). Applies to
  *   fame_amount only, not time -- these are fame buffs, not speed buffs.
+ * @param {string} [toolTier] - 'T4'..'T8', omit for no tool-tier modeling
+ *   (unlimited access, factor 1 -- the default, so callers that predate
+ *   this feature are unaffected). States the tool can't reach at all are
+ *   excluded and the remaining weights renormalized to sum to 1, since
+ *   those nodes are never part of what you actually gather.
  * @returns {Array<{tier:string, enchant:number, famevalue:number, weight:number, fameAmount:number, blendedTime:number}>}
  */
-export function buildZoneStates(zoneDef, quality, assumptions, buffMultiplier = 1) {
+export function buildZoneStates(zoneDef, quality, assumptions, buffMultiplier = 1, toolTier) {
   const { mob_proportion, charge_fraction_enchanted, kill_time } = assumptions;
   const gff = zoneDef.getGff(quality);
 
@@ -28,17 +33,19 @@ export function buildZoneStates(zoneDef, quality, assumptions, buffMultiplier = 
     const charges = CHARGES[tier];
     const staticTick = STATIC_TICK[tier];
     const elemTick = ELEMENTAL_TICK[tier];
+    const timeFactor = toolTimeFactor(tier, toolTier);
 
     for (let e = 0; e < 4; e++) {
       const pEnchant = enchantProbs[e];
       if (!pEnchant) continue; // skip zero-probability states
+      if (!toolCanHarvest(tier, e, toolTier)) continue; // tool can't reach this node at all
 
       const mult = e > 0 ? charge_fraction_enchanted : 1.0;
       const fv = famevalue(tier, e);
 
       const fameAmount = fv * charges * mult * gff * buffMultiplier;
-      const staticTime = charges * staticTick * mult;
-      const mobTime = kill_time + charges * elemTick * mult;
+      const staticTime = charges * staticTick * mult * timeFactor;
+      const mobTime = kill_time + charges * elemTick * mult * timeFactor;
       const blendedTime = mob_proportion * mobTime + (1 - mob_proportion) * staticTime;
 
       states.push({
@@ -51,6 +58,14 @@ export function buildZoneStates(zoneDef, quality, assumptions, buffMultiplier = 
       });
     }
   }
+
+  if (toolTier) {
+    const totalReachableWeight = states.reduce((sum, s) => sum + s.weight, 0);
+    if (totalReachableWeight > 0) {
+      for (const s of states) s.weight /= totalReachableWeight;
+    }
+  }
+
   return states;
 }
 
@@ -85,7 +100,7 @@ export function computeThresholdSweep(states, search_time) {
 }
 
 /** Convenience: zone + quality + assumptions -> sweep, in one call. */
-export function computeZoneSweep(zoneDef, quality, assumptions, buffMultiplier = 1) {
-  const states = buildZoneStates(zoneDef, quality, assumptions, buffMultiplier);
+export function computeZoneSweep(zoneDef, quality, assumptions, buffMultiplier = 1, toolTier) {
+  const states = buildZoneStates(zoneDef, quality, assumptions, buffMultiplier, toolTier);
   return computeThresholdSweep(states, assumptions.search_time);
 }
