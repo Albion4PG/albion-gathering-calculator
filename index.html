@@ -19,7 +19,8 @@
     background: #fff;
   }
   header h1 { margin: 0 0 4px; font-size: 1.4rem; }
-  header p { margin: 0; color: #666; font-size: 0.9rem; }
+  header p { margin: 0; color: #666; font-size: 0.9rem; max-width: 760px; line-height: 1.45; }
+  header p + p { margin-top: 6px; }
   main {
     display: grid;
     grid-template-columns: 300px 1fr;
@@ -306,7 +307,8 @@
 <body>
 <header>
   <h1>Albion Gathering Fame Calculator</h1>
-  <p>Fame/hour vs. minimum-value filter threshold, one line per zone added to the chart.</p>
+  <p>Estimated fame/hour per zone if you skip any node worth less than a chosen minimum value. That minimum is the chart's x-axis: each point is "fame/hour if I only take nodes worth at least this much," swept across every real value found in that zone — pickier (further right) means fewer nodes qualify each run, but every one you do take is worth more.</p>
+  <p>Accounts for real per-charge harvest time (from the game's own tick rates), not just travel time and mob-kill time. One line per zone added to the chart.</p>
 </header>
 
 <main>
