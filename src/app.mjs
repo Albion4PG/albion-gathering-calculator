@@ -1,6 +1,7 @@
-// Multi-zone UI: checkbox zone selector (grouped Royal/Outlands/Roads) opens
-// a per-zone config panel (4 assumption sliders + reset); clicking "Add to
-// plot" snapshots the current config as an entry on the chart. Entries are
+// Single-zone-at-a-time config UI: pick one zone (radio selector, grouped
+// Royal/Outlands/Roads) to open its config panel. Its sweep previews live
+// on the chart (dashed, faded) as the four assumption sliders move; clicking
+// "Add to plot" snapshots that config as a permanent entry. Entries are
 // listed under "On chart" with an X to remove them individually — the same
 // zone can be added more than once (e.g. to compare assumptions), in which
 // case repeat entries cycle through different marker shapes so they stay
@@ -18,26 +19,29 @@ const TIER_FILL = { T4: '#4887B0', T5: '#B73C38', T6: '#E48435', T7: '#E5BF3B', 
 const zoneIds = Object.keys(ZONES);
 
 // Fixed per-zone color, keyed by each zone's position in the full 13-zone
-// list -- not by check-order or add-order, so a zone's color stays the same
-// regardless of what else is checked/added. SERIES_COLORS has exactly one
+// list -- not by selection/add-order, so a zone's color stays the same
+// regardless of what else is selected/added. SERIES_COLORS has exactly one
 // entry per zone, so this never collides.
 function colorOf(zoneId) {
   const idx = zoneIds.indexOf(zoneId);
   return idx === -1 ? '#999' : SERIES_COLORS[idx % SERIES_COLORS.length];
 }
 
-// Per-zone draft config, seeded with category defaults. This is the "staging
-// area" a checked zone's panel edits; clicking Add to plot snapshots it.
+// Per-zone draft config, seeded with category defaults. This is the "staging"
+// state the currently-selected zone's panel edits; clicking Add to plot
+// snapshots it. Kept per-zone (not reset on selection change) so switching
+// zones and back doesn't lose tweaks.
 const zoneState = {};
 for (const id of zoneIds) {
   const def = ZONES[id];
   zoneState[id] = {
-    checked: false,
-    expanded: true,
     quality: def.requiresQuality ? 'Q3' : undefined,
     assumptions: { ...CATEGORY_DEFAULTS[def.group] },
   };
 }
+
+// Only one zone can be staged/previewed at a time.
+let selectedZoneId = null;
 
 // Entries actually plotted on the chart: { id, zoneId, quality, assumptions, shape }.
 let entries = [];
@@ -56,10 +60,6 @@ const els = {
   markerKey: document.getElementById('markerKey'),
 };
 
-function checkedZoneIds() {
-  return zoneIds.filter((id) => zoneState[id].checked);
-}
-
 function entryLabel(entry) {
   const def = ZONES[entry.zoneId];
   const base = `${def.name}${def.requiresQuality ? ` (${entry.quality})` : ''}`;
@@ -77,16 +77,17 @@ function renderZoneList() {
     const rows = ids.map((id) => {
       const def = ZONES[id];
       const s = zoneState[id];
+      const isSelected = id === selectedZoneId;
       const qualitySelect = def.requiresQuality
         ? `<select class="quality-select" data-zone="${id}" data-role="quality" autocomplete="off">
             ${QUALITIES.map((q) => `<option value="${q}" ${q === s.quality ? 'selected' : ''}>${q}</option>`).join('')}
           </select>`
         : '';
       return `
-        <div class="zone-row ${s.checked ? 'checked' : ''}">
+        <div class="zone-row ${isSelected ? 'checked' : ''}">
           <span class="swatch" style="background:${colorOf(id)}"></span>
           <label>
-            <input type="checkbox" data-zone="${id}" data-role="check" ${s.checked ? 'checked' : ''} autocomplete="off" />
+            <input type="radio" name="zoneSelect" data-zone="${id}" data-role="select" ${isSelected ? 'checked' : ''} autocomplete="off" />
             ${def.name}
           </label>
           ${qualitySelect}
@@ -99,9 +100,8 @@ function renderZoneList() {
 els.zoneList.addEventListener('change', (e) => {
   const zoneId = e.target.dataset.zone;
   if (!zoneId) return;
-  if (e.target.dataset.role === 'check') {
-    zoneState[zoneId].checked = e.target.checked;
-    if (e.target.checked) zoneState[zoneId].expanded = true;
+  if (e.target.dataset.role === 'select') {
+    selectedZoneId = zoneId;
     renderAll();
   } else if (e.target.dataset.role === 'quality') {
     zoneState[zoneId].quality = e.target.value;
@@ -132,57 +132,54 @@ els.addedList.addEventListener('click', (e) => {
   renderAll();
 });
 
-// --- per-zone config panels ---------------------------------------------
+// --- selected zone's config panel (staging + live preview) ---------------
 
 function renderZonePanels() {
-  const checkedIds = checkedZoneIds();
-
-  if (checkedIds.length === 0) {
-    els.zonePanels.innerHTML = '<div class="empty-hint">Check a zone on the left to configure it, then click "Add to plot" to put it on the chart.</div>';
+  if (!selectedZoneId) {
+    els.zonePanels.innerHTML = '<div class="empty-hint">Select a zone on the left to configure it and preview it on the chart, then click "+ Add to plot" to save it there.</div>';
     return;
   }
 
-  els.zonePanels.innerHTML = checkedIds.map((id) => {
-    const def = ZONES[id];
-    const s = zoneState[id];
-    const a = s.assumptions;
-    const sweep = computeZoneSweep(def, s.quality, a);
+  const id = selectedZoneId;
+  const def = ZONES[id];
+  const s = zoneState[id];
+  const a = s.assumptions;
+  const sweep = computeZoneSweep(def, s.quality, a);
 
-    return `
-      <div class="zone-card ${s.expanded ? '' : 'collapsed'}" data-zone="${id}">
-        <div class="zone-card-header" data-role="toggle" data-zone="${id}">
-          <span class="swatch" style="background:${colorOf(id)}"></span>
-          <span class="name">${def.name}${def.requiresQuality ? ` (${s.quality})` : ''}</span>
-          <button type="button" class="zone-card-reset" data-role="reset" data-zone="${id}">Reset defaults</button>
-          <span class="chevron">&#9660;</span>
-        </div>
-        <div class="zone-card-body">
-          <div class="zone-card-grid">
-            <div class="field">
-              <label>Search time <span class="val" data-readout="search_time">${a.search_time}s</span></label>
-              <input type="range" min="0" max="60" step="1" value="${a.search_time}" data-zone="${id}" data-param="search_time" autocomplete="off" />
-            </div>
-            <div class="field">
-              <label>Mob proportion <span class="val" data-readout="mob_proportion">${Math.round(a.mob_proportion * 100)}%</span></label>
-              <input type="range" min="0" max="100" step="1" value="${Math.round(a.mob_proportion * 100)}" data-zone="${id}" data-param="mob_proportion" autocomplete="off" />
-            </div>
-            <div class="field">
-              <label>Charge fraction (enchanted) <span class="val" data-readout="charge_fraction_enchanted">${Math.round(a.charge_fraction_enchanted * 100)}%</span></label>
-              <input type="range" min="0" max="100" step="1" value="${Math.round(a.charge_fraction_enchanted * 100)}" data-zone="${id}" data-param="charge_fraction_enchanted" autocomplete="off" />
-            </div>
-            <div class="field">
-              <label>Kill time <span class="val" data-readout="kill_time">${a.kill_time}s</span></label>
-              <input type="range" min="0" max="60" step="1" value="${a.kill_time}" data-zone="${id}" data-param="kill_time" autocomplete="off" />
-            </div>
+  els.zonePanels.innerHTML = `
+    <div class="zone-card" data-zone="${id}">
+      <div class="zone-card-header">
+        <span class="swatch" style="background:${colorOf(id)}"></span>
+        <span class="name">${def.name}${def.requiresQuality ? ` (${s.quality})` : ''}</span>
+        <button type="button" class="zone-card-reset" data-role="reset" data-zone="${id}">Reset defaults</button>
+      </div>
+      <div class="zone-card-body">
+        <div class="zone-card-grid">
+          <div class="field">
+            <label>Search time <span class="val" data-readout="search_time">${a.search_time}s</span></label>
+            <input type="range" min="0" max="60" step="1" value="${a.search_time}" data-zone="${id}" data-param="search_time" autocomplete="off" />
           </div>
-          <table class="mini">
-            <thead><tr><th>Threshold</th><th>Label</th><th>Fame/hour</th></tr></thead>
-            <tbody>${sweep.map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`).join('')}</tbody>
-          </table>
-          <button type="button" class="add-btn" data-role="add" data-zone="${id}">+ Add to plot</button>
+          <div class="field">
+            <label>Mob proportion <span class="val" data-readout="mob_proportion">${Math.round(a.mob_proportion * 100)}%</span></label>
+            <input type="range" min="0" max="100" step="1" value="${Math.round(a.mob_proportion * 100)}" data-zone="${id}" data-param="mob_proportion" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label>Charge fraction (enchanted) <span class="val" data-readout="charge_fraction_enchanted">${Math.round(a.charge_fraction_enchanted * 100)}%</span></label>
+            <input type="range" min="0" max="100" step="1" value="${Math.round(a.charge_fraction_enchanted * 100)}" data-zone="${id}" data-param="charge_fraction_enchanted" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label>Kill time <span class="val" data-readout="kill_time">${a.kill_time}s</span></label>
+            <input type="range" min="0" max="60" step="1" value="${a.kill_time}" data-zone="${id}" data-param="kill_time" autocomplete="off" />
+          </div>
         </div>
-      </div>`;
-  }).join('');
+        <p class="preview-hint">Previewing on chart (dashed) — not yet added.</p>
+        <table class="mini">
+          <thead><tr><th>Threshold</th><th>Label</th><th>Fame/hour</th></tr></thead>
+          <tbody>${sweep.map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`).join('')}</tbody>
+        </table>
+        <button type="button" class="add-btn" data-role="add" data-zone="${id}">+ Add to plot</button>
+      </div>
+    </div>`;
 }
 
 els.zonePanels.addEventListener('input', (e) => {
@@ -195,8 +192,8 @@ els.zonePanels.addEventListener('input', (e) => {
   zoneState[zoneId].assumptions[param] = value;
 
   // Live-update just this card's readout/table, without a full re-render
-  // (avoids fighting focus/scroll on the slider being dragged). Doesn't touch
-  // the chart -- draft edits only apply once "Add to plot" is clicked.
+  // (avoids fighting focus/scroll on the slider being dragged). The chart
+  // preview is cheap to redraw wholesale, so that one does refresh live.
   const card = els.zonePanels.querySelector(`.zone-card[data-zone="${zoneId}"]`);
   const readout = card.querySelector(`[data-readout="${param}"]`);
   readout.textContent = param === 'mob_proportion' || param === 'charge_fraction_enchanted' ? `${raw}%` : `${raw}s`;
@@ -206,6 +203,8 @@ els.zonePanels.addEventListener('input', (e) => {
   card.querySelector('table.mini tbody').innerHTML = sweep
     .map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`)
     .join('');
+
+  renderChart();
 });
 
 els.zonePanels.addEventListener('click', (e) => {
@@ -216,9 +215,6 @@ els.zonePanels.addEventListener('click', (e) => {
   if (role === 'reset') {
     const def = ZONES[zoneId];
     zoneState[zoneId].assumptions = { ...CATEGORY_DEFAULTS[def.group] };
-    renderAll();
-  } else if (role === 'toggle') {
-    zoneState[zoneId].expanded = !zoneState[zoneId].expanded;
     renderAll();
   } else if (role === 'add') {
     const s = zoneState[zoneId];
@@ -247,10 +243,25 @@ function renderChart() {
       sweep: computeZoneSweep(def, entry.quality, entry.assumptions),
     };
   });
+
+  if (selectedZoneId) {
+    const def = ZONES[selectedZoneId];
+    const s = zoneState[selectedZoneId];
+    const previewShape = MARKER_SHAPES[entriesFor(selectedZoneId).length % MARKER_SHAPES.length];
+    seriesList.push({
+      name: `${def.name}${def.requiresQuality ? ` (${s.quality})` : ''} (previewing)`,
+      color: colorOf(selectedZoneId),
+      group: def.group,
+      shape: previewShape,
+      preview: true,
+      sweep: computeZoneSweep(def, s.quality, s.assumptions),
+    });
+  }
+
   renderLineChart(els.chart, seriesList);
 
   els.legend.innerHTML = seriesList
-    .map((s) => `<span class="legend-item">${markerIconSvg(s.shape, s.color)}${s.name}</span>`)
+    .map((s) => `<span class="legend-item${s.preview ? ' preview' : ''}">${markerIconSvg(s.shape, s.color)}${s.name}</span>`)
     .join('');
 }
 
@@ -267,6 +278,7 @@ function renderMarkerKey() {
     <h3>Marker key</h3>
     <div class="marker-key-row">${tierRow}</div>
     <div class="marker-key-row">${shapeRow}</div>
+    <div class="marker-key-row"><span class="marker-key-item"><svg width="20" height="10"><line x1="0" y1="5" x2="20" y2="5" stroke="#888" stroke-width="2.5" stroke-dasharray="5 4" /></svg>Dashed = previewing, not yet added</span></div>
   `;
 }
 

@@ -118,7 +118,11 @@ export function renderLineChart(svgEl, seriesList) {
         return shapeMarkup(shape, xFor(p.tau), yFor(p.famePerHour), 6, fill, edge, 2, title);
       })
       .join('');
-    return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="3.5" />${dots}`;
+    // "preview" series (a not-yet-added zone being configured) render dashed
+    // and faded so they read as tentative, distinct from committed entries.
+    const dash = s.preview ? ' stroke-dasharray="7 5"' : '';
+    const groupOpacity = s.preview ? ' opacity="0.55"' : '';
+    return `<g${groupOpacity}><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="3.5"${dash} />${dots}</g>`;
   }).join('');
 
   svgEl.innerHTML = `
