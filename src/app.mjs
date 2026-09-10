@@ -7,7 +7,11 @@
 // case repeat entries cycle through different marker shapes so they stay
 // visually distinguishable. See docs/spec.md Section 4.
 
-import { ZONES, CATEGORY_DEFAULTS, ROAD_TYPES } from './data.mjs';
+import {
+  ZONES, CATEGORY_DEFAULTS, ROAD_TYPES,
+  PORK_PIE_TIERS, PORK_PIE_MULTIPLIER, LEARNING_POINTS_MAX_NODES,
+  defaultBuffs, combinedBuffMultiplier,
+} from './data.mjs';
 import { computeZoneSweep } from './model.mjs';
 import { renderLineChart, SERIES_COLORS, MARKER_SHAPES, markerIconSvg } from './chart.mjs';
 
@@ -59,6 +63,15 @@ function variantSuffix(def, state) {
   return '';
 }
 
+// Universal buffs (Pork Pie / Premium / Learning Points): one global on/off
+// state applied to every entry's fame_amount, current and future -- not
+// snapshotted per zone/entry, so toggling one instantly re-scales the whole
+// chart. All default off per spec Section 5 (previously out of scope).
+let buffs = defaultBuffs();
+function currentBuffMultiplier() {
+  return combinedBuffMultiplier(buffs);
+}
+
 // Only one zone can be staged/previewed at a time.
 let selectedZoneId = null;
 
@@ -77,6 +90,7 @@ const els = {
   chart: document.getElementById('chart'),
   legend: document.getElementById('legend'),
   markerKey: document.getElementById('markerKey'),
+  buffsPanel: document.getElementById('buffsPanel'),
 };
 
 function entryLabel(entry) {
@@ -175,7 +189,7 @@ function renderZonePanels() {
   const def = ZONES[id];
   const s = zoneState[id];
   const a = s.assumptions;
-  const sweep = computeZoneSweep(resolvedZoneDef(id, s), s.quality, a);
+  const sweep = computeZoneSweep(resolvedZoneDef(id, s), s.quality, a, currentBuffMultiplier());
 
   els.zonePanels.innerHTML = `
     <div class="zone-card" data-zone="${id}">
@@ -229,7 +243,7 @@ els.zonePanels.addEventListener('input', (e) => {
   const readout = card.querySelector(`[data-readout="${param}"]`);
   readout.textContent = param === 'mob_proportion' || param === 'charge_fraction_enchanted' ? `${raw}%` : `${raw}s`;
   const s = zoneState[zoneId];
-  const sweep = computeZoneSweep(resolvedZoneDef(zoneId, s), s.quality, s.assumptions);
+  const sweep = computeZoneSweep(resolvedZoneDef(zoneId, s), s.quality, s.assumptions, currentBuffMultiplier());
   card.querySelector('table.mini tbody').innerHTML = sweep
     .map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`)
     .join('');
@@ -262,6 +276,50 @@ els.zonePanels.addEventListener('click', (e) => {
   }
 });
 
+// --- universal buffs -------------------------------------------------------
+
+function renderBuffsPanel() {
+  els.buffsPanel.innerHTML = `
+    <div class="buff-item">
+      <label>
+        <input type="checkbox" data-role="buff-toggle" data-buff="porkPie" ${buffs.porkPie.enabled ? 'checked' : ''} autocomplete="off" />
+        Pork Pie
+      </label>
+      <select data-role="buff-option" data-buff="porkPie" ${buffs.porkPie.enabled ? '' : 'disabled'} autocomplete="off">
+        ${PORK_PIE_TIERS.map((t) => `<option value="${t}" ${t === buffs.porkPie.tier ? 'selected' : ''}>${t} (${PORK_PIE_MULTIPLIER[t]}x)</option>`).join('')}
+      </select>
+    </div>
+    <div class="buff-item">
+      <label>
+        <input type="checkbox" data-role="buff-toggle" data-buff="premium" ${buffs.premium.enabled ? 'checked' : ''} autocomplete="off" />
+        Premium (1.5x)
+      </label>
+    </div>
+    <div class="buff-item">
+      <label>
+        <input type="checkbox" data-role="buff-toggle" data-buff="learningPoints" ${buffs.learningPoints.enabled ? 'checked' : ''} autocomplete="off" />
+        Learning Points
+      </label>
+      <select data-role="buff-option" data-buff="learningPoints" ${buffs.learningPoints.enabled ? '' : 'disabled'} autocomplete="off">
+        ${Array.from({ length: LEARNING_POINTS_MAX_NODES }, (_, i) => i + 1).map((n) => `<option value="${n}" ${n === buffs.learningPoints.nodes ? 'selected' : ''}>${n} node${n > 1 ? 's' : ''}</option>`).join('')}
+      </select>
+    </div>
+  `;
+}
+
+els.buffsPanel.addEventListener('change', (e) => {
+  const buffName = e.target.dataset.buff;
+  if (!buffName) return;
+  if (e.target.dataset.role === 'buff-toggle') {
+    buffs[buffName].enabled = e.target.checked;
+    renderAll();
+  } else if (e.target.dataset.role === 'buff-option') {
+    if (buffName === 'porkPie') buffs.porkPie.tier = e.target.value;
+    else if (buffName === 'learningPoints') buffs.learningPoints.nodes = Number(e.target.value);
+    renderAll();
+  }
+});
+
 // --- chart ---------------------------------------------------------------
 
 function renderChart() {
@@ -272,7 +330,7 @@ function renderChart() {
       color: colorOf(entry.zoneId),
       group: def.group,
       shape: entry.shape,
-      sweep: computeZoneSweep(resolvedZoneDef(entry.zoneId, entry), entry.quality, entry.assumptions),
+      sweep: computeZoneSweep(resolvedZoneDef(entry.zoneId, entry), entry.quality, entry.assumptions, currentBuffMultiplier()),
     };
   });
 
@@ -286,7 +344,7 @@ function renderChart() {
       group: def.group,
       shape: previewShape,
       preview: true,
-      sweep: computeZoneSweep(resolvedZoneDef(selectedZoneId, s), s.quality, s.assumptions),
+      sweep: computeZoneSweep(resolvedZoneDef(selectedZoneId, s), s.quality, s.assumptions, currentBuffMultiplier()),
     });
   }
 
@@ -322,6 +380,7 @@ function renderAll() {
   renderAddedList();
   renderChart();
   renderMarkerKey();
+  renderBuffsPanel();
 }
 
 renderAll();

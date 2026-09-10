@@ -19,7 +19,7 @@ cutoff):
 For each (tier t, enchant e) state with famevalue(t,e) >= τ:
     include it in the "qualifying" set
 
-fame_amount(t, e) = famevalue(t, e) × charges(t) × (charge_fraction_enchanted if e > 0 else 1.0) × gatheringfamefactor(zone)
+fame_amount(t, e) = famevalue(t, e) × charges(t) × (charge_fraction_enchanted if e > 0 else 1.0) × gatheringfamefactor(zone) × buff_multiplier
 static_time(t, e)   = charges(t) × static_tick(t)    × (charge_fraction_enchanted if e > 0 else 1.0)
 mob_time(t, e)      = kill_time + charges(t) × elemental_tick(t) × (charge_fraction_enchanted if e > 0 else 1.0)
 blended_time(t, e)  = mob_proportion × mob_time(t, e) + (1 - mob_proportion) × static_time(t, e)
@@ -113,6 +113,20 @@ normalizes over its T4/T5 weights alone.
 | `charge_fraction_enchanted` | Fraction of full charge count present on an enchanted node | All zones: **50%** |
 | `kill_time` | Flat seconds to kill a resource mob before harvesting (added once, not scaled by charges) | All zones: **10s** |
 
+### Universal fame buffs (all default OFF)
+
+Unlike the per-zone parameters above, these apply globally to every zone/
+entry at once (current and future — not snapshotted per entry), matching
+their real account-wide nature. Each is a flat multiplier on `fame_amount`
+only; none affect gathering speed/time. Combine multiplicatively with each
+other and with `gatheringfamefactor`.
+
+| Buff | Options | Multiplier |
+|---|---|---|
+| Pork Pie | T7 (default) / T7.1 / T7.2 / T7.3 | 1.15 / 1.175 / 1.2 / 1.225 |
+| Premium | on/off | 1.5 |
+| Learning Points | 1–5 destiny-board nodes (default 5) | `1 + (4/5) × nodes` — linear from 1x (0 nodes) to 5x (5 nodes) |
+
 ## 4. UI Structure
 
 - Zone selector: single-select checkboxes grouped Royal / Outlands / Roads
@@ -131,10 +145,12 @@ normalizes over its T4/T5 weights alone.
   explains tier-fill colors, marker shapes, and the dashed-preview
   convention.
 - No editing of Section 2 constants anywhere in the UI.
+- Buffs panel: checkboxes (+ dropdowns for Pork Pie/Learning Points, see
+  Section 3) to the right of the chart, applying globally to every entry
+  at once rather than being part of any single zone's config panel.
 
 ## 5. Explicitly Out of Scope (v1)
 
-- Player buffs (Premium, Pork Pie, Quick Learn)
 - Tool-tier constraints (assume full-access tools always)
 - Treasures
 - Off-road-vs-total-area correction for Roads

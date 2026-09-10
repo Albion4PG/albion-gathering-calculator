@@ -10,9 +10,12 @@ import { CHARGES, STATIC_TICK, ELEMENTAL_TICK, famevalue } from './data.mjs';
  * @param {object} zoneDef - one entry from ZONES in data.mjs
  * @param {string|undefined} quality - 'Q1'..'Q6', only used if zoneDef.requiresQuality
  * @param {{search_time:number, mob_proportion:number, charge_fraction_enchanted:number, kill_time:number}} assumptions
+ * @param {number} [buffMultiplier=1] - combined Premium/Pork Pie/Learning
+ *   Points multiplier (see data.mjs combinedBuffMultiplier). Applies to
+ *   fame_amount only, not time -- these are fame buffs, not speed buffs.
  * @returns {Array<{tier:string, enchant:number, famevalue:number, weight:number, fameAmount:number, blendedTime:number}>}
  */
-export function buildZoneStates(zoneDef, quality, assumptions) {
+export function buildZoneStates(zoneDef, quality, assumptions, buffMultiplier = 1) {
   const { mob_proportion, charge_fraction_enchanted, kill_time } = assumptions;
   const gff = zoneDef.getGff(quality);
 
@@ -33,7 +36,7 @@ export function buildZoneStates(zoneDef, quality, assumptions) {
       const mult = e > 0 ? charge_fraction_enchanted : 1.0;
       const fv = famevalue(tier, e);
 
-      const fameAmount = fv * charges * mult * gff;
+      const fameAmount = fv * charges * mult * gff * buffMultiplier;
       const staticTime = charges * staticTick * mult;
       const mobTime = kill_time + charges * elemTick * mult;
       const blendedTime = mob_proportion * mobTime + (1 - mob_proportion) * staticTime;
@@ -82,7 +85,7 @@ export function computeThresholdSweep(states, search_time) {
 }
 
 /** Convenience: zone + quality + assumptions -> sweep, in one call. */
-export function computeZoneSweep(zoneDef, quality, assumptions) {
-  const states = buildZoneStates(zoneDef, quality, assumptions);
+export function computeZoneSweep(zoneDef, quality, assumptions, buffMultiplier = 1) {
+  const states = buildZoneStates(zoneDef, quality, assumptions, buffMultiplier);
   return computeThresholdSweep(states, assumptions.search_time);
 }

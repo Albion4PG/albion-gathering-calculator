@@ -208,3 +208,35 @@ export const CATEGORY_DEFAULTS = {
   outlands: { search_time: 10, mob_proportion: 0.25, charge_fraction_enchanted: 0.5, kill_time: 10 },
   roads: { search_time: 10, mob_proportion: 0.50, charge_fraction_enchanted: 0.5, kill_time: 10 },
 };
+
+// --- Optional fame buffs (user-tunable, all default OFF) -------------------
+// Each is a flat multiplier on fame_amount only -- they don't change
+// gathering speed/time, matching their real in-game behavior. Combine
+// multiplicatively with each other and with gatheringfamefactor.
+
+export const PORK_PIE_TIERS = ['T7', 'T7.1', 'T7.2', 'T7.3'];
+export const PORK_PIE_MULTIPLIER = { T7: 1.15, 'T7.1': 1.175, 'T7.2': 1.2, 'T7.3': 1.225 };
+export const PREMIUM_MULTIPLIER = 1.5;
+export const LEARNING_POINTS_MAX_NODES = 5;
+
+// Effect is linear from 1x (0 nodes) to 5x (5 nodes) -- each node is an
+// equal additive slice (4x total range / 5 nodes = 0.8x) of the full bonus.
+export function learningPointsMultiplier(nodes) {
+  return 1 + (4 / LEARNING_POINTS_MAX_NODES) * nodes;
+}
+
+export function defaultBuffs() {
+  return {
+    porkPie: { enabled: false, tier: 'T7' },
+    premium: { enabled: false },
+    learningPoints: { enabled: false, nodes: LEARNING_POINTS_MAX_NODES },
+  };
+}
+
+export function combinedBuffMultiplier(buffs) {
+  let mult = 1;
+  if (buffs.porkPie.enabled) mult *= PORK_PIE_MULTIPLIER[buffs.porkPie.tier];
+  if (buffs.premium.enabled) mult *= PREMIUM_MULTIPLIER;
+  if (buffs.learningPoints.enabled) mult *= learningPointsMultiplier(buffs.learningPoints.nodes);
+  return mult;
+}
