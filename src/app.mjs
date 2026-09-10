@@ -284,10 +284,31 @@ els.zonePanels.addEventListener('click', (e) => {
       assumptions: { ...s.assumptions },
       shape,
     });
+    trackAddToPlot(zoneId, s);
     selectedZoneId = null;
     renderAll();
   }
 });
+
+// --- analytics --------------------------------------------------------
+// Fire-and-forget GA4 custom event, guarded so an ad-blocker (gtag simply
+// undefined) or missing analytics script never breaks the actual feature.
+function trackAddToPlot(zoneId, s) {
+  if (typeof gtag !== 'function') return;
+  gtag('event', 'add_to_plot', {
+    zone_id: zoneId,
+    zone_name: ZONES[zoneId].name,
+    quality: s.quality || '(n/a)',
+    road_type: s.roadType || '(n/a)',
+    search_time: s.assumptions.search_time,
+    mob_proportion: s.assumptions.mob_proportion,
+    charge_fraction_enchanted: s.assumptions.charge_fraction_enchanted,
+    kill_time: s.assumptions.kill_time,
+    pork_pie: buffs.porkPie.enabled ? buffs.porkPie.tier : 'off',
+    premium: buffs.premium.enabled,
+    learning_points: buffs.learningPoints.enabled ? buffs.learningPoints.nodes : 0,
+  });
+}
 
 // --- universal buffs -------------------------------------------------------
 

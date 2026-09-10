@@ -4,6 +4,15 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Albion Gathering Fame Calculator</title>
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-90Q7D6QZPJ"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-90Q7D6QZPJ');
+</script>
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
@@ -302,6 +311,7 @@
     font-size: 0.8rem;
     color: #888;
   }
+  .analytics-note { margin: 8px 0 0; font-size: 0.75rem; }
 </style>
 </head>
 <body>
@@ -343,6 +353,7 @@
 
 <footer>
   Game-data constants are fixed and not user-editable; only the four assumption parameters per zone are adjustable. Configure a zone below, then click <strong>Add to plot</strong> to add it to the chart — the same zone can be added more than once with different assumptions. See <a href="docs/spec.md">docs/spec.md</a> for the full model.
+  <p class="analytics-note">This page uses Google Analytics to understand usage (including which zones/assumptions get added to the chart).</p>
 </footer>
 
 <script type="module" src="src/app.mjs"></script>
