@@ -116,16 +116,17 @@ for (const { def, quality, label } of variants) {
   check(toolTimeFactor('T7', 'T6') === 1.5, 'one tier above tool should be 1.5x time (slower)');
   check(toolTimeFactor('T4', 'T8') === 0.25, 'far below tool tier should be fast (0.25x time)');
 
-  // Omitting toolTier entirely must be a true no-op (unlimited access, 1x),
-  // so every caller/test that predates this feature is unaffected.
-  check(toolCanHarvest('T8', 3, undefined) === true, 'omitted toolTier should never restrict access');
-  check(toolTimeFactor('T4', undefined) === 1, 'omitted toolTier should never change time');
+  // Tool tier is never optional -- there's no gathering without a tool --
+  // so computeZoneSweep defaults it to 'T8' when the caller omits it.
+  check(toolCanHarvest('T8', 3, undefined) === false, "toolTier is mandatory now -- an omitted/undefined tool shouldn't parse as reaching anything");
 
   // A restrictive tool tier must actually change computeZoneSweep's output
-  // (fewer/cheaper states reachable), not just be accepted and ignored.
+  // (fewer/cheaper states reachable), not just be accepted and ignored. T8
+  // (the default) is the one tier that never excludes anything, so it's
+  // the right baseline to compare a real restriction against.
   const def = ZONES.ROYAL_RED_T7; // has T4-T7, so a T6 tool meaningfully restricts it
   const assumptions = CATEGORY_DEFAULTS.royal;
-  const unrestricted = computeZoneSweep(def, undefined, assumptions, 1);
+  const unrestricted = computeZoneSweep(def, undefined, assumptions, 1, 'T8');
   const restricted = computeZoneSweep(def, undefined, assumptions, 1, 'T6');
   check(
     restricted.length < unrestricted.length,

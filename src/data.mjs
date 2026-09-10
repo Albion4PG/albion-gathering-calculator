@@ -35,11 +35,11 @@ function tierNum(tier) {
   return Number(String(tier).replace('T', ''));
 }
 
-// null/undefined toolTier means "no tool-tier modeling" (unlimited access,
-// factor 1 always) -- the default when the parameter is omitted entirely,
-// so existing callers/tests that predate this feature are unaffected.
+// There's no such thing as gathering without a tool, so toolTier is always
+// a real 'T4'..'T8' value -- never optional/omittable. T8 (the default,
+// see CATEGORY_DEFAULTS-adjacent app state) is simply the one tier that
+// never excludes anything; it still gets its own real speed factor below.
 export function toolCanHarvest(baseTier, enchant, toolTier) {
-  if (!toolTier) return true;
   const base = tierNum(baseTier);
   const tool = tierNum(toolTier);
   if (base <= tool) return true;
@@ -47,7 +47,6 @@ export function toolCanHarvest(baseTier, enchant, toolTier) {
 }
 
 export function toolTimeFactor(baseTier, toolTier) {
-  if (!toolTier) return 1;
   const diff = Math.max(-1, Math.min(7, tierNum(toolTier) - tierNum(baseTier)));
   return TOOL_TIME_FACTOR[String(diff)];
 }

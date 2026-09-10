@@ -16,12 +16,17 @@ For a given zone and a given filter threshold `τ` (a per-unit famevalue
 cutoff):
 
 ```
+Drop any (tier t, enchant e) state the tool_tier can't reach at all (see
+"Universal tool tier" below), then renormalize P(tier=t) x P(enchant=e|t)
+to sum to 1 over what's left -- a node you can't gather isn't part of
+your encounter mix. Everything below operates on that reachable set.
+
 For each (tier t, enchant e) state with famevalue(t,e) >= τ:
     include it in the "qualifying" set
 
 fame_amount(t, e) = famevalue(t, e) × charges(t) × (charge_fraction_enchanted if e > 0 else 1.0) × gatheringfamefactor(zone) × buff_multiplier
-static_time(t, e)   = charges(t) × static_tick(t)    × (charge_fraction_enchanted if e > 0 else 1.0)
-mob_time(t, e)      = kill_time + charges(t) × elemental_tick(t) × (charge_fraction_enchanted if e > 0 else 1.0)
+static_time(t, e)   = charges(t) × static_tick(t)    × (charge_fraction_enchanted if e > 0 else 1.0) × tool_time_factor(t, tool_tier)
+mob_time(t, e)      = kill_time + charges(t) × elemental_tick(t) × (charge_fraction_enchanted if e > 0 else 1.0) × tool_time_factor(t, tool_tier)
 blended_time(t, e)  = mob_proportion × mob_time(t, e) + (1 - mob_proportion) × static_time(t, e)
 
 fame_per_encounter(τ) = Σ over qualifying (t,e) [ P(tier=t) × P(enchant=e | tier=t) × fame_amount(t,e) ]
@@ -127,12 +132,14 @@ other and with `gatheringfamefactor`.
 | Premium | on/off | 1.5 |
 | Learning Points | 1–5 destiny-board nodes (default 5) | `1 + (4/5) × nodes` — linear from 1x (0 nodes) to 5x (5 nodes) |
 
-### Universal tool tier (default T8)
+### Universal tool tier (mandatory, default T8)
 
 Also global like the buffs above, but affects node **access and speed**
-instead of fame — a tool can harvest any enchant level of its own tier
-or below, plus the *unenchanted* state of the tier one above it (at a
-1.5x time penalty), and nothing higher. Sourced from harvestables.xml's
+instead of fame, and — unlike the buffs — isn't optional: there's no such
+thing as gathering without a tool, so `tool_tier` always applies, T8 by
+default. A tool can harvest any enchant level of its own tier or below,
+plus the *unenchanted* state of the tier one above it (at a 1.5x time
+penalty), and nothing higher. Sourced from harvestables.xml's
 `<ToolModifier>` table (`tierdifference` = tool tier − node's base tier,
 giving a harvest-time multiplier; identical across all 5 resource types)
 for the speed factor — the enchant-based access cutoff itself isn't in
