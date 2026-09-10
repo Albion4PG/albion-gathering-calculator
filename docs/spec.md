@@ -8,8 +8,7 @@ assumption parameters listed in Section 3.
 
 All game-data constants below are sourced programmatically from raw
 client XML files (see [`gamedata/README.md`](../gamedata/README.md)) via
-`scripts/build_gamedata.py`, not hand-transcribed — except Roads node
-weights, which are not yet re-derived that way (see that README).
+`scripts/build_gamedata.py`, not hand-transcribed.
 
 ## 1. The Model (formula)
 
@@ -87,6 +86,14 @@ draws from), so each color is modeled as two selectable zone entries
 rather than picking just one: `ROYAL_BLUE_T4`/`ROYAL_BLUE_T5`,
 `ROYAL_YELLOW_T5`/`ROYAL_YELLOW_T6`, `ROYAL_RED_T6`/`ROYAL_RED_T7`.
 
+Roads node weights come from averaging per-cluster resource counts across
+every Avalonian tunnel instance in `world.xml`, grouped by that cluster's
+`type=` (12 distinct tunnel types, e.g. `TUNNEL_LOW`, `TUNNEL_BLACK_HIGH`,
+`TUNNEL_DEEP_RAID` — see `scripts/build_gamedata.py`
+`extract_roads_node_weights` and `gamedata/README.md`). Modeled as one
+`ROADS` zone entry with a type dropdown (`src/data.mjs` `ROAD_TYPES`),
+mirroring how Outlands zones use a Q1-Q6 quality dropdown.
+
 Outlands Z5's source data also lists T2/T3 node counts (140/240), but
 per Section 5 (T3-and-below out of scope) they're dropped entirely
 rather than folded into the P(tier) denominator — `P(tier)` for Z5
@@ -103,16 +110,22 @@ normalizes over its T4/T5 weights alone.
 
 ## 4. UI Structure
 
-- Zone selector: checkboxes grouped Royal / Outlands / Roads (Outlands
-  zones carry a Q1–Q6 selector).
-- Per-zone config panel: the 4 assumption controls above, pre-filled
-  with category defaults, with a reset action.
-- Single chart, one line per checked zone, live-updating.
+- Zone selector: single-select checkboxes grouped Royal / Outlands / Roads
+  (Outlands zones carry a Q1–Q6 dropdown; the Roads zone carries a tunnel-
+  type dropdown — see Section 2). Selecting a zone opens its config panel;
+  only one zone can be configured/staged at a time.
+- Per-zone config panel: the 4 assumption controls from Section 3,
+  pre-filled with category defaults, with a reset action. The panel's
+  sweep previews live on the chart (dashed, faded) as sliders move.
+- "Add to plot" snapshots the staged config as a permanent chart entry
+  and clears staging. The same zone can be added more than once (e.g. to
+  compare assumptions); repeat entries of the same zone cycle through
+  different marker shapes to stay visually distinguishable.
+- "On chart" list: one row per added entry, each with a remove (×) button.
+- Single chart, one line per added entry, live-updating; a marker key
+  explains tier-fill colors, marker shapes, and the dashed-preview
+  convention.
 - No editing of Section 2 constants anywhere in the UI.
-
-**Current dev-build status**: only one zone (Outlands Z7) is wired into
-`index.html` so far, to validate the interactive pieces before building
-the full multi-zone selector.
 
 ## 5. Explicitly Out of Scope (v1)
 

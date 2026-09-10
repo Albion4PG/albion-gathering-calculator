@@ -72,6 +72,25 @@ function resolveEnchant(tableName, tier) {
 
 const ROYAL_W = GAMEDATA.ROYAL_NODE_WEIGHTS_BY_DECLARED_TIER;
 const OUT_W = GAMEDATA.OUTLANDS_NODE_WEIGHTS_BY_DECLARED_TIER;
+const ROAD_W = GAMEDATA.ROADS_NODE_WEIGHTS_BY_TYPE;
+
+// Roads dropdown order: roughly ascending danger/tier, Hideouts last since
+// they're a distinct sub-category (guild-owned structures placed inside an
+// otherwise-normal, publicly gatherable tunnel zone).
+export const ROAD_TYPES = [
+  { id: 'TUNNEL_ROYAL', label: 'Royal (T4)', nodeWeights: ROAD_W.TUNNEL_ROYAL },
+  { id: 'TUNNEL_LOW', label: 'Low (T4)', nodeWeights: ROAD_W.TUNNEL_LOW },
+  { id: 'TUNNEL_MEDIUM', label: 'Medium (T6)', nodeWeights: ROAD_W.TUNNEL_MEDIUM },
+  { id: 'TUNNEL_HIGH', label: 'High (T6)', nodeWeights: ROAD_W.TUNNEL_HIGH },
+  { id: 'TUNNEL_ROYAL_RED', label: 'Royal Red (T6)', nodeWeights: ROAD_W.TUNNEL_ROYAL_RED },
+  { id: 'TUNNEL_BLACK_LOW', label: 'Black Low (T6)', nodeWeights: ROAD_W.TUNNEL_BLACK_LOW },
+  { id: 'TUNNEL_BLACK_MEDIUM', label: 'Black Medium (T6)', nodeWeights: ROAD_W.TUNNEL_BLACK_MEDIUM },
+  { id: 'TUNNEL_BLACK_HIGH', label: 'Black High (T6)', nodeWeights: ROAD_W.TUNNEL_BLACK_HIGH },
+  { id: 'TUNNEL_DEEP', label: 'Deep (T8)', nodeWeights: ROAD_W.TUNNEL_DEEP },
+  { id: 'TUNNEL_DEEP_RAID', label: 'Deep Raid (T8)', nodeWeights: ROAD_W.TUNNEL_DEEP_RAID },
+  { id: 'TUNNEL_HIDEOUT', label: 'Hideout (T6)', nodeWeights: ROAD_W.TUNNEL_HIDEOUT },
+  { id: 'TUNNEL_HIDEOUT_DEEP', label: 'Hideout Deep (T6)', nodeWeights: ROAD_W.TUNNEL_HIDEOUT_DEEP },
+];
 
 export const ZONES = {
   ROYAL_BLUE_T4: {
@@ -167,42 +186,20 @@ export const ZONES = {
     getEnchantTable: (tier, q) => resolveEnchant(`OUT_${q}`, tier),
   },
 
-  // Roads node weights are NOT yet sourced from gamedata/world.xml (13MB,
-  // no per-tunnel-type preset -- needs per-cluster averaging). Hand
-  // transcribed from the original spec derivation; see gamedata/README.md.
-  ROADS_TUNNEL_LOW: {
-    id: 'ROADS_TUNNEL_LOW',
-    name: 'Roads — Tunnel (Low, T4-6)',
+  // Roads node weights are sourced from gamedata/world.xml (13MB, no
+  // per-tunnel-type preset like Royal/Outlands -- averaged per-cluster
+  // across each of the 12 distinct tunnel `type=` values instead; see
+  // scripts/build_gamedata.py extract_roads_node_weights). Each type maps
+  // to exactly one declared tier (verified, zero exceptions), but the
+  // node-count mix differs enough per type that they aren't interchangeable
+  // -- modeled as one zone with a type dropdown, mirroring Outlands' Q1-Q6.
+  ROADS: {
+    id: 'ROADS',
+    name: 'Roads — Avalonian Tunnel',
     group: 'roads',
     requiresQuality: false,
-    nodeWeights: { T4: 28.12, T5: 17.23, T6: 15.11 },
-    getGff: () => GATHERING_FAME_FACTOR.roads,
-    getEnchantTable: (tier) => resolveEnchant('ROADS', tier),
-  },
-  ROADS_TUNNEL_BLACK_LOW: {
-    id: 'ROADS_TUNNEL_BLACK_LOW',
-    name: 'Roads — Tunnel (Black Low, T5-7)',
-    group: 'roads',
-    requiresQuality: false,
-    nodeWeights: { T5: 20.85, T6: 21.49, T7: 16.09 },
-    getGff: () => GATHERING_FAME_FACTOR.roads,
-    getEnchantTable: (tier) => resolveEnchant('ROADS', tier),
-  },
-  ROADS_TUNNEL_DEEP: {
-    id: 'ROADS_TUNNEL_DEEP',
-    name: 'Roads — Tunnel (Deep, T6-8)',
-    group: 'roads',
-    requiresQuality: false,
-    nodeWeights: { T6: 8.00, T7: 15.80, T8: 24.80 },
-    getGff: () => GATHERING_FAME_FACTOR.roads,
-    getEnchantTable: (tier) => resolveEnchant('ROADS', tier),
-  },
-  ROADS_TUNNEL_DEEP_RAID: {
-    id: 'ROADS_TUNNEL_DEEP_RAID',
-    name: 'Roads — Tunnel (Deep Raid, T6-8)',
-    group: 'roads',
-    requiresQuality: false,
-    nodeWeights: { T6: 7.80, T7: 15.80, T8: 25.10 },
+    requiresRoadType: true,
+    roadTypes: ROAD_TYPES,
     getGff: () => GATHERING_FAME_FACTOR.roads,
     getEnchantTable: (tier) => resolveEnchant('ROADS', tier),
   },

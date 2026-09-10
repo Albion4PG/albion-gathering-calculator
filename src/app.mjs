@@ -7,9 +7,12 @@
 // case repeat entries cycle through different marker shapes so they stay
 // visually distinguishable. See docs/spec.md Section 4.
 
-import { ZONES, CATEGORY_DEFAULTS } from './data.mjs';
+import { ZONES, CATEGORY_DEFAULTS, ROAD_TYPES } from './data.mjs';
 import { computeZoneSweep } from './model.mjs';
 import { renderLineChart, SERIES_COLORS, MARKER_SHAPES, markerIconSvg } from './chart.mjs';
+
+const ROAD_TYPE_LABEL = Object.fromEntries(ROAD_TYPES.map((t) => [t.id, t.label]));
+const ROAD_TYPE_WEIGHTS = Object.fromEntries(ROAD_TYPES.map((t) => [t.id, t.nodeWeights]));
 
 const GROUP_LABELS = { royal: 'Royal', outlands: 'Outlands', roads: 'Roads' };
 const GROUP_ORDER = ['royal', 'outlands', 'roads'];
@@ -18,7 +21,7 @@ const TIER_FILL = { T4: '#4887B0', T5: '#B73C38', T6: '#E48435', T7: '#E5BF3B', 
 
 const zoneIds = Object.keys(ZONES);
 
-// Fixed per-zone color, keyed by each zone's position in the full 14-zone
+// Fixed per-zone color, keyed by each zone's position in the full 11-zone
 // list -- not by selection/add-order, so a zone's color stays the same
 // regardless of what else is selected/added. SERIES_COLORS has exactly one
 // entry per zone, so this never collides.
@@ -36,8 +39,24 @@ for (const id of zoneIds) {
   const def = ZONES[id];
   zoneState[id] = {
     quality: def.requiresQuality ? 'Q3' : undefined,
+    roadType: def.requiresRoadType ? def.roadTypes[0].id : undefined,
     assumptions: { ...CATEGORY_DEFAULTS[def.group] },
   };
+}
+
+// Zones with a road-type dropdown don't have a static nodeWeights -- resolve
+// it from the currently-selected road type before handing the zone def to
+// computeZoneSweep (which reads zoneDef.nodeWeights directly).
+function resolvedZoneDef(id, state) {
+  const def = ZONES[id];
+  if (!def.requiresRoadType) return def;
+  return { ...def, nodeWeights: ROAD_TYPE_WEIGHTS[state.roadType] };
+}
+
+function variantSuffix(def, state) {
+  if (def.requiresQuality) return ` (${state.quality})`;
+  if (def.requiresRoadType) return ` — ${ROAD_TYPE_LABEL[state.roadType]}`;
+  return '';
 }
 
 // Only one zone can be staged/previewed at a time.
@@ -62,7 +81,7 @@ const els = {
 
 function entryLabel(entry) {
   const def = ZONES[entry.zoneId];
-  const base = `${def.name}${def.requiresQuality ? ` (${entry.quality})` : ''}`;
+  const base = `${def.name}${variantSuffix(def, entry)}`;
   const siblings = entriesFor(entry.zoneId);
   if (siblings.length <= 1) return base;
   const ordinal = siblings.findIndex((e) => e.id === entry.id) + 1;
@@ -83,6 +102,11 @@ function renderZoneList() {
             ${QUALITIES.map((q) => `<option value="${q}" ${q === s.quality ? 'selected' : ''}>${q}</option>`).join('')}
           </select>`
         : '';
+      const roadTypeSelect = def.requiresRoadType
+        ? `<select class="road-type-select" data-zone="${id}" data-role="roadType" autocomplete="off">
+            ${def.roadTypes.map((t) => `<option value="${t.id}" ${t.id === s.roadType ? 'selected' : ''}>${t.label}</option>`).join('')}
+          </select>`
+        : '';
       return `
         <div class="zone-row ${isSelected ? 'checked' : ''}">
           <span class="swatch" style="background:${colorOf(id)}"></span>
@@ -90,7 +114,7 @@ function renderZoneList() {
             <input type="checkbox" data-zone="${id}" data-role="select" ${isSelected ? 'checked' : ''} autocomplete="off" />
             ${def.name}
           </label>
-          ${qualitySelect}
+          ${qualitySelect}${roadTypeSelect}
         </div>`;
     }).join('');
     return `<div class="zone-group"><h3 class="zone-group-title">${GROUP_LABELS[group]}</h3>${rows}</div>`;
@@ -109,6 +133,9 @@ els.zoneList.addEventListener('change', (e) => {
     renderAll();
   } else if (e.target.dataset.role === 'quality') {
     zoneState[zoneId].quality = e.target.value;
+    renderAll();
+  } else if (e.target.dataset.role === 'roadType') {
+    zoneState[zoneId].roadType = e.target.value;
     renderAll();
   }
 });
@@ -148,13 +175,13 @@ function renderZonePanels() {
   const def = ZONES[id];
   const s = zoneState[id];
   const a = s.assumptions;
-  const sweep = computeZoneSweep(def, s.quality, a);
+  const sweep = computeZoneSweep(resolvedZoneDef(id, s), s.quality, a);
 
   els.zonePanels.innerHTML = `
     <div class="zone-card" data-zone="${id}">
       <div class="zone-card-header">
         <span class="swatch" style="background:${colorOf(id)}"></span>
-        <span class="name">${def.name}${def.requiresQuality ? ` (${s.quality})` : ''}</span>
+        <span class="name">${def.name}${variantSuffix(def, s)}</span>
         <button type="button" class="zone-card-reset" data-role="reset" data-zone="${id}">Reset defaults</button>
       </div>
       <div class="zone-card-body">
@@ -201,9 +228,8 @@ els.zonePanels.addEventListener('input', (e) => {
   const card = els.zonePanels.querySelector(`.zone-card[data-zone="${zoneId}"]`);
   const readout = card.querySelector(`[data-readout="${param}"]`);
   readout.textContent = param === 'mob_proportion' || param === 'charge_fraction_enchanted' ? `${raw}%` : `${raw}s`;
-  const def = ZONES[zoneId];
   const s = zoneState[zoneId];
-  const sweep = computeZoneSweep(def, s.quality, s.assumptions);
+  const sweep = computeZoneSweep(resolvedZoneDef(zoneId, s), s.quality, s.assumptions);
   card.querySelector('table.mini tbody').innerHTML = sweep
     .map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`)
     .join('');
@@ -227,6 +253,7 @@ els.zonePanels.addEventListener('click', (e) => {
       id: nextEntryId++,
       zoneId,
       quality: s.quality,
+      roadType: s.roadType,
       assumptions: { ...s.assumptions },
       shape,
     });
@@ -245,7 +272,7 @@ function renderChart() {
       color: colorOf(entry.zoneId),
       group: def.group,
       shape: entry.shape,
-      sweep: computeZoneSweep(def, entry.quality, entry.assumptions),
+      sweep: computeZoneSweep(resolvedZoneDef(entry.zoneId, entry), entry.quality, entry.assumptions),
     };
   });
 
@@ -254,12 +281,12 @@ function renderChart() {
     const s = zoneState[selectedZoneId];
     const previewShape = MARKER_SHAPES[entriesFor(selectedZoneId).length % MARKER_SHAPES.length];
     seriesList.push({
-      name: `${def.name}${def.requiresQuality ? ` (${s.quality})` : ''} (previewing)`,
+      name: `${def.name}${variantSuffix(def, s)} (previewing)`,
       color: colorOf(selectedZoneId),
       group: def.group,
       shape: previewShape,
       preview: true,
-      sweep: computeZoneSweep(def, s.quality, s.assumptions),
+      sweep: computeZoneSweep(resolvedZoneDef(selectedZoneId, s), s.quality, s.assumptions),
     });
   }
 

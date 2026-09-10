@@ -560,5 +560,67 @@ export const GAMEDATA = {
       "T7": 140,
       "T6": 460
     }
+  },
+  "ROADS_NODE_WEIGHTS_BY_TYPE": {
+    "TUNNEL_BLACK_HIGH": {
+      "T5": 10.0,
+      "T6": 10.33,
+      "T7": 8.0
+    },
+    "TUNNEL_BLACK_LOW": {
+      "T5": 20.84,
+      "T6": 21.49,
+      "T7": 16.09
+    },
+    "TUNNEL_BLACK_MEDIUM": {
+      "T5": 12.88,
+      "T6": 13.19,
+      "T7": 11.0
+    },
+    "TUNNEL_DEEP": {
+      "T6": 8.0,
+      "T7": 15.8,
+      "T8": 24.8
+    },
+    "TUNNEL_DEEP_RAID": {
+      "T6": 7.8,
+      "T7": 15.8,
+      "T8": 25.1
+    },
+    "TUNNEL_HIDEOUT": {
+      "T5": 17.0,
+      "T6": 17.56,
+      "T7": 12.83
+    },
+    "TUNNEL_HIDEOUT_DEEP": {
+      "T5": 15.57,
+      "T6": 16.21,
+      "T7": 11.71
+    },
+    "TUNNEL_HIGH": {
+      "T5": 12.0,
+      "T6": 12.5,
+      "T7": 9.0
+    },
+    "TUNNEL_LOW": {
+      "T4": 28.12,
+      "T5": 17.23,
+      "T6": 15.12
+    },
+    "TUNNEL_MEDIUM": {
+      "T5": 12.0,
+      "T6": 12.0,
+      "T7": 10.0
+    },
+    "TUNNEL_ROYAL": {
+      "T4": 17.68,
+      "T5": 10.55,
+      "T6": 9.41
+    },
+    "TUNNEL_ROYAL_RED": {
+      "T5": 21.0,
+      "T6": 21.5,
+      "T7": 16.75
+    }
   }
 };
