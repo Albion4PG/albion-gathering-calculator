@@ -4,7 +4,7 @@
 // belong to its own zone's real threshold range — no padding/interpolation
 // into slots it has no data for (per spec Section 1/4).
 
-const MARGIN = { top: 20, right: 24, bottom: 64, left: 72 };
+const MARGIN = { top: 20, right: 24, bottom: 76, left: 84 };
 
 // One entry per zone (13 total) so each zone gets a fixed, unique color
 // regardless of which other zones are checked -- not reassigned by
@@ -21,6 +21,45 @@ export const SERIES_COLORS = [
 // edge so T8's white fill still shows up against the white chart background).
 const TIER_FILL = { T4: '#4887B0', T5: '#B73C38', T6: '#E48435', T7: '#E5BF3B', T8: '#FFFFFF' };
 const GROUP_EDGE = { outlands: '#000000', roads: '#808080', royal: '#94a3b8' };
+
+// Marker shape = which "add" of the same zone this series is (1st, 2nd, ...),
+// so two entries for the same zone (e.g. compared under different
+// assumptions) stay visually distinguishable even though they share a color.
+export const MARKER_SHAPES = ['circle', 'square', 'triangle', 'diamond'];
+
+/** SVG markup for one point marker of the given shape, centered at (cx, cy). */
+export function shapeMarkup(shape, cx, cy, r, fill, stroke, strokeWidth, titleText) {
+  const title = titleText ? `<title>${titleText}</title>` : '';
+  switch (shape) {
+    case 'square': {
+      const half = r * 0.85;
+      return `<rect x="${cx - half}" y="${cy - half}" width="${half * 2}" height="${half * 2}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}">${title}</rect>`;
+    }
+    case 'triangle': {
+      const rr = r * 1.15;
+      const pts = [0, 120, 240]
+        .map((deg) => {
+          const rad = (Math.PI / 180) * (deg - 90);
+          return `${cx + rr * Math.cos(rad)},${cy + rr * Math.sin(rad)}`;
+        })
+        .join(' ');
+      return `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}">${title}</polygon>`;
+    }
+    case 'diamond': {
+      const pts = [`${cx},${cy - r}`, `${cx + r},${cy}`, `${cx},${cy + r}`, `${cx - r},${cy}`].join(' ');
+      return `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}">${title}</polygon>`;
+    }
+    case 'circle':
+    default:
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}">${title}</circle>`;
+  }
+}
+
+/** Small standalone <svg> icon of one shape, for use in legends/lists outside the main chart. */
+export function markerIconSvg(shape, fill, stroke = '#333', size = 14) {
+  const r = size * 0.32;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex:none">${shapeMarkup(shape, size / 2, size / 2, r, fill, stroke, 1.5)}</svg>`;
+}
 
 /**
  * @param {SVGSVGElement} svgEl - target <svg>, must already have width/height set via viewBox
@@ -70,14 +109,16 @@ export function renderLineChart(svgEl, seriesList) {
     if (s.sweep.length === 0) return '';
     const color = s.color || SERIES_COLORS[i % SERIES_COLORS.length];
     const edge = GROUP_EDGE[s.group] || '#333';
+    const shape = s.shape || 'circle';
     const pts = s.sweep.map((p) => `${xFor(p.tau)},${yFor(p.famePerHour)}`).join(' ');
     const dots = s.sweep
       .map((p) => {
         const fill = TIER_FILL[p.tier] || color;
-        return `<circle cx="${xFor(p.tau)}" cy="${yFor(p.famePerHour)}" r="4" fill="${fill}" stroke="${edge}" stroke-width="1.5"><title>${escapeXml(s.name)} — ${escapeXml(p.label)}: ${Math.round(p.famePerHour).toLocaleString()} fame/hr</title></circle>`;
+        const title = `${escapeXml(s.name)} — ${escapeXml(p.label)}: ${Math.round(p.famePerHour).toLocaleString()} fame/hr`;
+        return shapeMarkup(shape, xFor(p.tau), yFor(p.famePerHour), 6, fill, edge, 2, title);
       })
       .join('');
-    return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5" />${dots}`;
+    return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="3.5" />${dots}`;
   }).join('');
 
   svgEl.innerHTML = `
