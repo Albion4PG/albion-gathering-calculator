@@ -2,8 +2,7 @@
 //
 // Sourced programmatically from the raw client XML files in gamedata/ via
 // scripts/build_gamedata.py -> src/gamedata.generated.mjs. See
-// docs/spec.md and gamedata/README.md for provenance notes and what is
-// NOT yet sourced this way (Roads node weights).
+// docs/spec.md and gamedata/README.md for provenance notes.
 
 import { GAMEDATA } from './gamedata.generated.mjs';
 
