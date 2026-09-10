@@ -81,9 +81,11 @@ drift between doc and code.
 
 ### Node weights per zone
 
-See `src/data.mjs` `ZONES`. Royal Red is split into two selectable
-zone entries (`ROYAL_RED_T6` / `ROYAL_RED_T7`) rather than picking one
-of the two nodeweight variants that were both observed in source data.
+See `src/data.mjs` `ZONES`. Each Royal color actually spans two declared
+tiers in `world.xml` (which sets the Forest-biome node-weight preset it
+draws from), so each color is modeled as two selectable zone entries
+rather than picking just one: `ROYAL_BLUE_T4`/`ROYAL_BLUE_T5`,
+`ROYAL_YELLOW_T5`/`ROYAL_YELLOW_T6`, `ROYAL_RED_T6`/`ROYAL_RED_T7`.
 
 Outlands Z5's source data also lists T2/T3 node counts (140/240), but
 per Section 5 (T3-and-below out of scope) they're dropped entirely

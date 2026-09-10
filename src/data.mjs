@@ -56,9 +56,13 @@ function resolveEnchant(tableName, tier) {
 // Section 5) — dropped entirely rather than folded into the denominator.
 //
 // Royal node weights don't depend on color, only on which "declared tier"
-// preset a color draws from: Blue=T5, Yellow/Red(T6-declared)=T6,
-// Red(T7-declared)=T7 — confirmed by summing each T{n}_FR_ROY_WLD preset
-// and matching exactly against every color's previously-known weights.
+// preset a color draws from — confirmed by summing each T{n}_FR_ROY_WLD
+// preset and matching exactly against every color's previously-known
+// weights. Each color actually spans two declared tiers in world.xml, not
+// one, so each color is modeled as two zone entries:
+//   Blue: T4 (majority, 17/24 in-scope clusters) / T5 (7/24)
+//   Yellow: T5 (majority, 30/44) / T6 (14/44)
+//   Red: T6 / T7 (both declared tiers are common, no majority/minority split)
 //
 // A second T6 red-danger enchant table ("RED2") also exists in the raw
 // data and was briefly exposed as its own zone ("Royal — Red2"), but only
@@ -70,19 +74,37 @@ const ROYAL_W = GAMEDATA.ROYAL_NODE_WEIGHTS_BY_DECLARED_TIER;
 const OUT_W = GAMEDATA.OUTLANDS_NODE_WEIGHTS_BY_DECLARED_TIER;
 
 export const ZONES = {
-  ROYAL_BLUE: {
-    id: 'ROYAL_BLUE',
-    name: 'Royal — Blue',
+  ROYAL_BLUE_T4: {
+    id: 'ROYAL_BLUE_T4',
+    name: 'Royal — Blue (T4)',
     group: 'royal',
     requiresQuality: false,
-    nodeWeights: ROYAL_W[5],
+    nodeWeights: ROYAL_W[4],
     getGff: () => GATHERING_FAME_FACTOR.royal,
     // SAFE distribution: explicit T4 rate, default (Royal DEFAULT) for T5+
     getEnchantTable: (tier) => resolveEnchant('SAFE', tier),
   },
-  ROYAL_YELLOW: {
-    id: 'ROYAL_YELLOW',
-    name: 'Royal — Yellow',
+  ROYAL_BLUE_T5: {
+    id: 'ROYAL_BLUE_T5',
+    name: 'Royal — Blue (T5)',
+    group: 'royal',
+    requiresQuality: false,
+    nodeWeights: ROYAL_W[5],
+    getGff: () => GATHERING_FAME_FACTOR.royal,
+    getEnchantTable: (tier) => resolveEnchant('SAFE', tier),
+  },
+  ROYAL_YELLOW_T5: {
+    id: 'ROYAL_YELLOW_T5',
+    name: 'Royal — Yellow (T5)',
+    group: 'royal',
+    requiresQuality: false,
+    nodeWeights: ROYAL_W[5],
+    getGff: () => GATHERING_FAME_FACTOR.royal,
+    getEnchantTable: (tier) => resolveEnchant('YELLOW', tier),
+  },
+  ROYAL_YELLOW_T6: {
+    id: 'ROYAL_YELLOW_T6',
+    name: 'Royal — Yellow (T6)',
     group: 'royal',
     requiresQuality: false,
     nodeWeights: ROYAL_W[6],
@@ -91,7 +113,7 @@ export const ZONES = {
   },
   ROYAL_RED_T6: {
     id: 'ROYAL_RED_T6',
-    name: 'Royal — Red (T6-declared)',
+    name: 'Royal — Red (T6)',
     group: 'royal',
     requiresQuality: false,
     nodeWeights: ROYAL_W[6],
@@ -100,7 +122,7 @@ export const ZONES = {
   },
   ROYAL_RED_T7: {
     id: 'ROYAL_RED_T7',
-    name: 'Royal — Red (T7-declared)',
+    name: 'Royal — Red (T7)',
     group: 'royal',
     requiresQuality: false,
     nodeWeights: ROYAL_W[7],

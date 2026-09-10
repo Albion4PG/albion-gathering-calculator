@@ -6,14 +6,14 @@
 
 const MARGIN = { top: 20, right: 24, bottom: 76, left: 84 };
 
-// One entry per zone (12 total) so each zone gets a fixed, unique color
+// One entry per zone (14 total) so each zone gets a fixed, unique color
 // regardless of which other zones are checked -- not reassigned by
 // check-order, so a zone's color stays recognizable across sessions. Used
 // for the connecting line (zone identity) and the legend swatch.
 export const SERIES_COLORS = [
   '#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed',
   '#0891b2', '#db2777', '#65a30d', '#4f46e5', '#ea580c',
-  '#0d9488', '#a21caf',
+  '#0d9488', '#a21caf', '#b91c1c', '#3f6212',
 ];
 
 // Marker fill = Albion's own tier-color convention. Marker edge = zone

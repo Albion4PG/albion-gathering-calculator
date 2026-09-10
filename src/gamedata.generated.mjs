@@ -521,6 +521,9 @@ export const GAMEDATA = {
     "dragonareablack15to20": 1.0
   },
   "ROYAL_NODE_WEIGHTS_BY_DECLARED_TIER": {
+    "4": {
+      "T4": 399
+    },
     "5": {
       "T5": 399,
       "T4": 399

@@ -149,9 +149,10 @@ def extract_preset(presets_xml, name):
 def extract_royal_node_weights(presets_xml):
     # Each Royal color zone is a single declared-tier preset (Forest biome);
     # node weights don't depend on color, only which declared tier a color
-    # uses. T5=Blue, T6=Yellow/Red-T6-declared/Red2, T7=Red-T7-declared.
+    # uses. Per world.xml, each color actually spans two declared tiers:
+    # Blue=T4/T5, Yellow=T5/T6, Red=T6/T7 -- so all of T4-T7 are needed.
     weights = {}
-    for declared_tier in [5, 6, 7]:
+    for declared_tier in [4, 5, 6, 7]:
         counts = extract_preset(presets_xml, f"T{declared_tier}_FR_ROY_WLD")
         weights[declared_tier] = {f"T{t}": amt for t, amt in counts.items() if t >= 4}
     return weights
