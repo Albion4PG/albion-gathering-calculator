@@ -88,11 +88,16 @@ rather than picking just one: `ROYAL_BLUE_T4`/`ROYAL_BLUE_T5`,
 
 Roads node weights come from averaging per-cluster resource counts across
 every Avalonian tunnel instance in `world.xml`, grouped by that cluster's
-`type=` (12 distinct tunnel types, e.g. `TUNNEL_LOW`, `TUNNEL_BLACK_HIGH`,
-`TUNNEL_DEEP_RAID` — see `scripts/build_gamedata.py`
-`extract_roads_node_weights` and `gamedata/README.md`). Modeled as one
-`ROADS` zone entry with a type dropdown (`src/data.mjs` `ROAD_TYPES`),
-mirroring how Outlands zones use a Q1-Q6 quality dropdown.
+`type=` (12 distinct tunnel types — see `scripts/build_gamedata.py`
+`extract_roads_node_weights` and `gamedata/README.md` for the full
+extraction and per-type numbers). Within a declared tier the 12 types are
+near-identical in modeled outcome (fame/hour spans only ~2% across all T6
+types, for instance), so the calculator exposes one representative type
+per declared tier rather than all 12: the most-prevalent type by cluster
+count at each of T4/T6/T8 (`TUNNEL_LOW`/`TUNNEL_BLACK_LOW`/
+`TUNNEL_DEEP_RAID`). Modeled as one `ROADS` zone entry with a T4/T6/T8
+dropdown (`src/data.mjs` `ROAD_TYPES`), mirroring how Outlands zones use
+a Q1-Q6 quality dropdown.
 
 Outlands Z5's source data also lists T2/T3 node counts (140/240), but
 per Section 5 (T3-and-below out of scope) they're dropped entirely

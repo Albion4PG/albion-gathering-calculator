@@ -74,22 +74,19 @@ const ROYAL_W = GAMEDATA.ROYAL_NODE_WEIGHTS_BY_DECLARED_TIER;
 const OUT_W = GAMEDATA.OUTLANDS_NODE_WEIGHTS_BY_DECLARED_TIER;
 const ROAD_W = GAMEDATA.ROADS_NODE_WEIGHTS_BY_TYPE;
 
-// Roads dropdown order: roughly ascending danger/tier, Hideouts last since
-// they're a distinct sub-category (guild-owned structures placed inside an
-// otherwise-normal, publicly gatherable tunnel zone).
+// world.xml has 12 distinct tunnel `type=` values, but within a declared
+// tier they're near-identical in modeled outcome -- fame/hour across all
+// T6 types, for instance, spans only ~22.4k-22.9k (~2%). So rather than
+// exposing all 12, one representative per declared tier is picked (the
+// most-prevalent type by cluster count, ties broken arbitrarily -- none
+// occurred here):
+//   T4: TUNNEL_LOW (52 clusters) over TUNNEL_ROYAL (44)
+//   T6: TUNNEL_BLACK_LOW (90) over the other 7 T6 types (8-72 each)
+//   T8: TUNNEL_DEEP_RAID (20) over TUNNEL_DEEP (10)
 export const ROAD_TYPES = [
-  { id: 'TUNNEL_ROYAL', label: 'Royal (T4)', nodeWeights: ROAD_W.TUNNEL_ROYAL },
-  { id: 'TUNNEL_LOW', label: 'Low (T4)', nodeWeights: ROAD_W.TUNNEL_LOW },
-  { id: 'TUNNEL_MEDIUM', label: 'Medium (T6)', nodeWeights: ROAD_W.TUNNEL_MEDIUM },
-  { id: 'TUNNEL_HIGH', label: 'High (T6)', nodeWeights: ROAD_W.TUNNEL_HIGH },
-  { id: 'TUNNEL_ROYAL_RED', label: 'Royal Red (T6)', nodeWeights: ROAD_W.TUNNEL_ROYAL_RED },
-  { id: 'TUNNEL_BLACK_LOW', label: 'Black Low (T6)', nodeWeights: ROAD_W.TUNNEL_BLACK_LOW },
-  { id: 'TUNNEL_BLACK_MEDIUM', label: 'Black Medium (T6)', nodeWeights: ROAD_W.TUNNEL_BLACK_MEDIUM },
-  { id: 'TUNNEL_BLACK_HIGH', label: 'Black High (T6)', nodeWeights: ROAD_W.TUNNEL_BLACK_HIGH },
-  { id: 'TUNNEL_DEEP', label: 'Deep (T8)', nodeWeights: ROAD_W.TUNNEL_DEEP },
-  { id: 'TUNNEL_DEEP_RAID', label: 'Deep Raid (T8)', nodeWeights: ROAD_W.TUNNEL_DEEP_RAID },
-  { id: 'TUNNEL_HIDEOUT', label: 'Hideout (T6)', nodeWeights: ROAD_W.TUNNEL_HIDEOUT },
-  { id: 'TUNNEL_HIDEOUT_DEEP', label: 'Hideout Deep (T6)', nodeWeights: ROAD_W.TUNNEL_HIDEOUT_DEEP },
+  { id: 'TUNNEL_LOW', label: 'T4', nodeWeights: ROAD_W.TUNNEL_LOW },
+  { id: 'TUNNEL_BLACK_LOW', label: 'T6', nodeWeights: ROAD_W.TUNNEL_BLACK_LOW },
+  { id: 'TUNNEL_DEEP_RAID', label: 'T8', nodeWeights: ROAD_W.TUNNEL_DEEP_RAID },
 ];
 
 export const ZONES = {
@@ -195,7 +192,7 @@ export const ZONES = {
   // -- modeled as one zone with a type dropdown, mirroring Outlands' Q1-Q6.
   ROADS: {
     id: 'ROADS',
-    name: 'Roads — Avalonian Tunnel',
+    name: 'Roads of Avalon',
     group: 'roads',
     requiresQuality: false,
     requiresRoadType: true,
