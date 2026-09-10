@@ -63,6 +63,19 @@ function variantSuffix(def, state) {
   return '';
 }
 
+// Hover/focus "?" tooltip icon for a field label. tabindex makes it
+// reachable (and its :focus-triggered tooltip visible) via keyboard too.
+function infoIcon(text) {
+  return `<span class="info-icon" tabindex="0">?<span class="tooltip-text">${text}</span></span>`;
+}
+
+const PARAM_HELP = {
+  search_time: 'Seconds spent walking to and finding the next node before you can start harvesting it.',
+  mob_proportion: 'Share of nodes that are elemental resource mobs (must be killed first) rather than static ground nodes.',
+  charge_fraction_enchanted: "Fraction of a node's full charge count still present when you find it, for enchanted (higher-tier) nodes.",
+  kill_time: 'Flat seconds to kill a resource mob before you can start harvesting it -- added once per mob, not per charge.',
+};
+
 // Universal buffs (Pork Pie / Premium / Learning Points): one global on/off
 // state applied to every entry's fame_amount, current and future -- not
 // snapshotted per zone/entry, so toggling one instantly re-scales the whole
@@ -201,19 +214,19 @@ function renderZonePanels() {
       <div class="zone-card-body">
         <div class="zone-card-grid">
           <div class="field">
-            <label>Search time <span class="val" data-readout="search_time">${a.search_time}s</span></label>
+            <label><span class="label-text">Search time ${infoIcon(PARAM_HELP.search_time)}</span><span class="val" data-readout="search_time">${a.search_time}s</span></label>
             <input type="range" min="0" max="60" step="1" value="${a.search_time}" data-zone="${id}" data-param="search_time" autocomplete="off" />
           </div>
           <div class="field">
-            <label>Mob proportion <span class="val" data-readout="mob_proportion">${Math.round(a.mob_proportion * 100)}%</span></label>
+            <label><span class="label-text">Mob proportion ${infoIcon(PARAM_HELP.mob_proportion)}</span><span class="val" data-readout="mob_proportion">${Math.round(a.mob_proportion * 100)}%</span></label>
             <input type="range" min="0" max="100" step="1" value="${Math.round(a.mob_proportion * 100)}" data-zone="${id}" data-param="mob_proportion" autocomplete="off" />
           </div>
           <div class="field">
-            <label>Charge fraction (enchanted) <span class="val" data-readout="charge_fraction_enchanted">${Math.round(a.charge_fraction_enchanted * 100)}%</span></label>
+            <label><span class="label-text">Charge fraction (enchanted) ${infoIcon(PARAM_HELP.charge_fraction_enchanted)}</span><span class="val" data-readout="charge_fraction_enchanted">${Math.round(a.charge_fraction_enchanted * 100)}%</span></label>
             <input type="range" min="0" max="100" step="1" value="${Math.round(a.charge_fraction_enchanted * 100)}" data-zone="${id}" data-param="charge_fraction_enchanted" autocomplete="off" />
           </div>
           <div class="field">
-            <label>Kill time <span class="val" data-readout="kill_time">${a.kill_time}s</span></label>
+            <label><span class="label-text">Kill time ${infoIcon(PARAM_HELP.kill_time)}</span><span class="val" data-readout="kill_time">${a.kill_time}s</span></label>
             <input type="range" min="0" max="60" step="1" value="${a.kill_time}" data-zone="${id}" data-param="kill_time" autocomplete="off" />
           </div>
         </div>
