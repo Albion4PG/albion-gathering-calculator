@@ -84,6 +84,9 @@ let buffs = defaultBuffs();
 function currentBuffMultiplier() {
   return combinedBuffMultiplier(buffs);
 }
+function tierAboveExclusions() {
+  return { noStaticTierAbove: buffs.noStaticTierAbove, noMobTierAbove: buffs.noMobTierAbove };
+}
 
 // Only one zone can be staged/previewed at a time.
 let selectedZoneId = null;
@@ -202,7 +205,7 @@ function renderZonePanels() {
   const def = ZONES[id];
   const s = zoneState[id];
   const a = s.assumptions;
-  const sweep = computeZoneSweep(resolvedZoneDef(id, s), s.quality, a, currentBuffMultiplier(), buffs.toolTier);
+  const sweep = computeZoneSweep(resolvedZoneDef(id, s), s.quality, a, currentBuffMultiplier(), buffs.toolTier, tierAboveExclusions());
 
   els.zonePanels.innerHTML = `
     <div class="zone-card" data-zone="${id}">
@@ -256,7 +259,7 @@ els.zonePanels.addEventListener('input', (e) => {
   const readout = card.querySelector(`[data-readout="${param}"]`);
   readout.textContent = param === 'mob_proportion' || param === 'charge_fraction_enchanted' ? `${raw}%` : `${raw}s`;
   const s = zoneState[zoneId];
-  const sweep = computeZoneSweep(resolvedZoneDef(zoneId, s), s.quality, s.assumptions, currentBuffMultiplier(), buffs.toolTier);
+  const sweep = computeZoneSweep(resolvedZoneDef(zoneId, s), s.quality, s.assumptions, currentBuffMultiplier(), buffs.toolTier, tierAboveExclusions());
   card.querySelector('table.mini tbody').innerHTML = sweep
     .map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`)
     .join('');
@@ -308,6 +311,8 @@ function trackAddToPlot(zoneId, s) {
     premium: buffs.premium.enabled,
     learning_points: buffs.learningPoints.enabled ? buffs.learningPoints.nodes : 0,
     tool_tier: buffs.toolTier,
+    no_static_tier_above: buffs.noStaticTierAbove,
+    no_mob_tier_above: buffs.noMobTierAbove,
   });
 }
 
@@ -345,12 +350,29 @@ function renderBuffsPanel() {
         ${TOOL_TIERS.map((t) => `<option value="${t}" ${t === buffs.toolTier ? 'selected' : ''}>${t}</option>`).join('')}
       </select>
     </div>
+    <div class="buff-item">
+      <label>
+        <input type="checkbox" data-role="tier-above-toggle" data-which="noStaticTierAbove" ${buffs.noStaticTierAbove ? 'checked' : ''} autocomplete="off" />
+        Skip static nodes one tier above ${infoIcon('If your tool can reach the tier above (unenchanted only), this refuses the static version of it -- you’ll only take it if it’s a resource mob instead.')}
+      </label>
+    </div>
+    <div class="buff-item">
+      <label>
+        <input type="checkbox" data-role="tier-above-toggle" data-which="noMobTierAbove" ${buffs.noMobTierAbove ? 'checked' : ''} autocomplete="off" />
+        Skip mobs one tier above ${infoIcon('If your tool can reach the tier above (unenchanted only), this refuses the resource-mob version of it -- you’ll only take it if it’s a static node instead. Checking both boxes drops that tier entirely.')}
+      </label>
+    </div>
   `;
 }
 
 els.buffsPanel.addEventListener('change', (e) => {
   if (e.target.dataset.role === 'tool-tier') {
     buffs.toolTier = e.target.value;
+    renderAll();
+    return;
+  }
+  if (e.target.dataset.role === 'tier-above-toggle') {
+    buffs[e.target.dataset.which] = e.target.checked;
     renderAll();
     return;
   }
@@ -377,7 +399,7 @@ function renderChart() {
       color: colorOf(entry.zoneId),
       group: def.group,
       shape: entry.shape,
-      sweep: computeZoneSweep(resolvedZoneDef(entry.zoneId, entry), entry.quality, entry.assumptions, currentBuffMultiplier(), buffs.toolTier),
+      sweep: computeZoneSweep(resolvedZoneDef(entry.zoneId, entry), entry.quality, entry.assumptions, currentBuffMultiplier(), buffs.toolTier, tierAboveExclusions()),
     };
   });
 
@@ -391,7 +413,7 @@ function renderChart() {
       group: def.group,
       shape: previewShape,
       preview: true,
-      sweep: computeZoneSweep(resolvedZoneDef(selectedZoneId, s), s.quality, s.assumptions, currentBuffMultiplier(), buffs.toolTier),
+      sweep: computeZoneSweep(resolvedZoneDef(selectedZoneId, s), s.quality, s.assumptions, currentBuffMultiplier(), buffs.toolTier, tierAboveExclusions()),
     });
   }
 

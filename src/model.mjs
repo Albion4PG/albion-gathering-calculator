@@ -18,13 +18,22 @@ import { CHARGES, STATIC_TICK, ELEMENTAL_TICK, famevalue, toolCanHarvest, toolTi
  *   this feature are unaffected). States the tool can't reach at all are
  *   excluded and the remaining weights renormalized to sum to 1, since
  *   those nodes are never part of what you actually gather.
+ * @param {{noStaticTierAbove?:boolean, noMobTierAbove?:boolean}} [tierAboveExclusions]
+ *   - Independent per-type opt-out from the tool's one-tier-above exception
+ *   (only meaningful together with toolTier; no-op otherwise). The tier
+ *   directly above the tool is only ever reachable at enchant 0, so these
+ *   only affect that one state: refusing a type forces the blend fully
+ *   onto the other type (mob_proportion pinned to 1 or 0 for that state
+ *   alone); refusing both drops the state entirely, as if unreachable.
  * @returns {Array<{tier:string, enchant:number, famevalue:number, weight:number, fameAmount:number, blendedTime:number}>}
  */
-export function buildZoneStates(zoneDef, quality, assumptions, buffMultiplier = 1, toolTier) {
+export function buildZoneStates(zoneDef, quality, assumptions, buffMultiplier = 1, toolTier, tierAboveExclusions = {}) {
   const { mob_proportion, charge_fraction_enchanted, kill_time } = assumptions;
+  const { noStaticTierAbove = false, noMobTierAbove = false } = tierAboveExclusions;
   const gff = zoneDef.getGff(quality);
 
   const totalWeight = Object.values(zoneDef.nodeWeights).reduce((a, b) => a + b, 0);
+  const toolTierNum = toolTier ? Number(String(toolTier).replace('T', '')) : null;
 
   const states = [];
   for (const tier of Object.keys(zoneDef.nodeWeights)) {
@@ -34,19 +43,25 @@ export function buildZoneStates(zoneDef, quality, assumptions, buffMultiplier = 
     const staticTick = STATIC_TICK[tier];
     const elemTick = ELEMENTAL_TICK[tier];
     const timeFactor = toolTimeFactor(tier, toolTier);
+    const isTierAbove = toolTierNum !== null && Number(String(tier).replace('T', '')) === toolTierNum + 1;
 
     for (let e = 0; e < 4; e++) {
       const pEnchant = enchantProbs[e];
       if (!pEnchant) continue; // skip zero-probability states
       if (!toolCanHarvest(tier, e, toolTier)) continue; // tool can't reach this node at all
+      if (isTierAbove && noStaticTierAbove && noMobTierAbove) continue; // refused both ways in
 
       const mult = e > 0 ? charge_fraction_enchanted : 1.0;
       const fv = famevalue(tier, e);
 
+      let effectiveMobProportion = mob_proportion;
+      if (isTierAbove && noStaticTierAbove) effectiveMobProportion = 1;
+      else if (isTierAbove && noMobTierAbove) effectiveMobProportion = 0;
+
       const fameAmount = fv * charges * mult * gff * buffMultiplier;
       const staticTime = charges * staticTick * mult * timeFactor;
       const mobTime = kill_time + charges * elemTick * mult * timeFactor;
-      const blendedTime = mob_proportion * mobTime + (1 - mob_proportion) * staticTime;
+      const blendedTime = effectiveMobProportion * mobTime + (1 - effectiveMobProportion) * staticTime;
 
       states.push({
         tier,
@@ -100,7 +115,7 @@ export function computeThresholdSweep(states, search_time) {
 }
 
 /** Convenience: zone + quality + assumptions -> sweep, in one call. */
-export function computeZoneSweep(zoneDef, quality, assumptions, buffMultiplier = 1, toolTier) {
-  const states = buildZoneStates(zoneDef, quality, assumptions, buffMultiplier, toolTier);
+export function computeZoneSweep(zoneDef, quality, assumptions, buffMultiplier = 1, toolTier, tierAboveExclusions) {
+  const states = buildZoneStates(zoneDef, quality, assumptions, buffMultiplier, toolTier, tierAboveExclusions);
   return computeThresholdSweep(states, assumptions.search_time);
 }

@@ -133,5 +133,38 @@ for (const { def, quality, label } of variants) {
   );
 }
 
+// Tier-above exclusions: independent per-type opt-out from the tool's
+// one-tier-above exception (T6 tool, T7.0 is the only reachable T7 state).
+{
+  const def = ZONES.ROYAL_RED_T7;
+  const assumptions = CATEGORY_DEFAULTS.royal;
+  const findT7 = (sweep) => sweep.find((p) => p.label === 'T7.0');
+
+  const neither = computeZoneSweep(def, undefined, assumptions, 1, 'T6', {});
+  const skipStatic = computeZoneSweep(def, undefined, assumptions, 1, 'T6', { noStaticTierAbove: true });
+  const skipMob = computeZoneSweep(def, undefined, assumptions, 1, 'T6', { noMobTierAbove: true });
+  const skipBoth = computeZoneSweep(def, undefined, assumptions, 1, 'T6', { noStaticTierAbove: true, noMobTierAbove: true });
+
+  check(findT7(neither) !== undefined, 'T7.0 should be present with no tier-above exclusions');
+  check(findT7(skipStatic) !== undefined, 'T7.0 should still be present when only static is skipped (falls back to mob)');
+  check(findT7(skipMob) !== undefined, 'T7.0 should still be present when only mob is skipped (falls back to static)');
+  check(findT7(skipBoth) === undefined, 'T7.0 should vanish entirely when both static and mob are skipped');
+
+  // Fame is identical across all three reachable variants -- only time (and
+  // therefore fame/hour) should differ by which route is forced.
+  const fames = [neither, skipStatic, skipMob].map((s) => findT7(s).famePerEncounter);
+  check(fames.every((f) => Math.abs(f - fames[0]) < 1e-9), 'famePerEncounter for T7.0 should be unaffected by which route is forced');
+
+  // Forcing 100% mob route should be faster (shorter time -> higher fame/hr)
+  // than forcing 100% static, since mobTime/staticTime differ; the default
+  // blend should sit strictly between the two forced extremes.
+  const mobOnlyFame = findT7(skipStatic).famePerHour;
+  const staticOnlyFame = findT7(skipMob).famePerHour;
+  const blendedFame = findT7(neither).famePerHour;
+  check(mobOnlyFame !== staticOnlyFame, 'forcing mob-only vs static-only should give different fame/hour');
+  const [lo, hi] = [Math.min(mobOnlyFame, staticOnlyFame), Math.max(mobOnlyFame, staticOnlyFame)];
+  check(blendedFame > lo && blendedFame < hi, 'default (blended) fame/hour should sit strictly between the two forced extremes');
+}
+
 console.log(failures === 0 ? `\nAll ${variants.length} zone/variant combinations passed.` : `\n${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

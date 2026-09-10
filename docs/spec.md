@@ -142,6 +142,16 @@ the sweep entirely, with the remaining states' weights renormalized to
 sum to 1 (a node you can't gather isn't part of your encounter mix). T8
 is both the default and the one tier that never excludes anything.
 
+The tier directly above the tool is only ever reachable at enchant 0 --
+neither static-vs-mob route is a hard game restriction there, just a
+strategic choice, so two checkboxes let it be refused per type
+independently: "Skip static nodes one tier above" (default **on**) and
+"Skip mobs one tier above" (default **off**). Refusing one route forces
+`mob_proportion` fully onto the other for that one state only (`1` or
+`0`); refusing both drops the state entirely, same as if the tool
+couldn't reach it at all. `fame_amount` is identical regardless of which
+route is taken -- only `blended_time` (and therefore fame/hour) changes.
+
 ## 4. UI Structure
 
 - Zone selector: single-select checkboxes grouped Royal / Outlands / Roads

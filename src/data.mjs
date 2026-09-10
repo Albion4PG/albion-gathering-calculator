@@ -270,6 +270,12 @@ export function defaultBuffs() {
     // "on" (no enabled flag) since some tool is always in use; T8 is both
     // the default and the one tier that never excludes anything.
     toolTier: 'T8',
+    // Independent per-type opt-out from the tool's one-tier-above exception
+    // (see model.mjs buildZoneStates) -- a strategic choice, not a hard
+    // game-mechanic gate, so both default reflecting typical play: skip the
+    // slower one-tier-up static node, but still take the mob.
+    noStaticTierAbove: true,
+    noMobTierAbove: false,
   };
 }
 
