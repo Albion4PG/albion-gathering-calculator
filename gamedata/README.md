@@ -11,7 +11,7 @@ via [`scripts/build_gamedata.py`](../scripts/build_gamedata.py):
 | `rareresourcedistribution.xml` | enchant probability tables, all zone types |
 | `gamedata.xml` | `gatheringfamefactor` per zone danger type |
 | `resourcedistpresets.xml` | node weights, Royal + Outlands zones |
-| `world.xml` | **not yet used** — see below |
+| `world.xml` | node weights, Roads (Avalonian tunnel) zones — see below |
 
 Regenerate after updating any of these files to a new game patch:
 
@@ -30,18 +30,39 @@ one cell is left at the shared 4.0s value as a known, minor approximation
 rather than restructuring the model to be resource-type-aware for a ~10%
 effect on a single cell.
 
-## What `world.xml` would additionally provide
+## Roads (Avalonian tunnel) node weights, from `world.xml`
 
-Roads (Avalonian tunnel) node weights are **not** sourced from these files
-yet — `resourcedistpresets.xml` has no per-tunnel-type preset for Roads;
-those counts are baked per placed cluster instance in `world.xml` (13MB),
-requiring: splitting on `<cluster ...>`, filtering to
-`rareresourcedistribution="ROADS"` entries, reading each one's `type=`
-attribute and nested `<distribution>` resource counts, then averaging
-across every cluster sharing the same `type=`. `world.xml` is included
-here for that future pass; until then, Roads node weights in
-[`src/data.mjs`](../src/data.mjs) stay hand-transcribed from the original
-spec derivation.
+Unlike Royal/Outlands, `resourcedistpresets.xml` has no per-tunnel-type
+preset for Roads — node counts are baked per placed cluster instance
+directly in `world.xml` (13MB) instead, under
+`<cluster rareresourcedistribution="ROADS" type="TUNNEL_...">`'s nested
+`<distribution><resource name=.. tier=.. count=.. /></distribution>`.
+`extract_roads_node_weights` in `scripts/build_gamedata.py` splits the
+file once on a cluster-start lookahead (cheap, linear — a single regex
+across the whole 13MB risks catastrophic backtracking given the nesting),
+filters to `ROADS` clusters, and averages resource counts (T4+, summed
+across all 5 resource types) per cluster `type=`.
+
+There are 12 distinct tunnel `type=` values (`TUNNEL_ROYAL`,
+`TUNNEL_ROYAL_RED`, `TUNNEL_LOW/MEDIUM/HIGH`,
+`TUNNEL_BLACK_LOW/MEDIUM/HIGH`, `TUNNEL_DEEP`, `TUNNEL_DEEP_RAID`,
+`TUNNEL_HIDEOUT`, `TUNNEL_HIDEOUT_DEEP`), each mapping to exactly one
+declared tier (verified — zero exceptions across all ~400 clusters) but
+with a different enough node-count mix per type to need its own average
+rather than being pooled. `TUNNEL_HIDEOUT`/`TUNNEL_HIDEOUT_DEEP` are
+guild-owned structures placed inside an otherwise-normal, publicly
+gatherable tunnel zone — not a private instance — so they're included
+like any other type, not excluded. Sample sizes per type range from 8
+(`TUNNEL_HIGH`) to 90 (`TUNNEL_BLACK_LOW`) clusters; the script prints
+each type's `n` alongside its average so low-sample entries are visible
+rather than presented with the same confidence as well-sampled ones.
+
+Checked for template/placeholder contamination (clusters sharing an
+identical, suspiciously duplicated `<distribution>` block) before trusting
+a naive per-type average — no type showed the concentrated-duplication
+pattern that would indicate a bug (max ~9% share on any single duplicate
+distribution within a type), so plain averaging across all clusters
+sharing a `type=` is used as-is.
 
 ## Things confirmed while building this pipeline
 

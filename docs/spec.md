@@ -8,8 +8,7 @@ assumption parameters listed in Section 3.
 
 All game-data constants below are sourced programmatically from raw
 client XML files (see [`gamedata/README.md`](../gamedata/README.md)) via
-`scripts/build_gamedata.py`, not hand-transcribed — except Roads node
-weights, which are not yet re-derived that way (see that README).
+`scripts/build_gamedata.py`, not hand-transcribed.
 
 ## 1. The Model (formula)
 
@@ -20,7 +19,7 @@ cutoff):
 For each (tier t, enchant e) state with famevalue(t,e) >= τ:
     include it in the "qualifying" set
 
-fame_amount(t, e) = famevalue(t, e) × charges(t) × (charge_fraction_enchanted if e > 0 else 1.0) × gatheringfamefactor(zone)
+fame_amount(t, e) = famevalue(t, e) × charges(t) × (charge_fraction_enchanted if e > 0 else 1.0) × gatheringfamefactor(zone) × buff_multiplier
 static_time(t, e)   = charges(t) × static_tick(t)    × (charge_fraction_enchanted if e > 0 else 1.0)
 mob_time(t, e)      = kill_time + charges(t) × elemental_tick(t) × (charge_fraction_enchanted if e > 0 else 1.0)
 blended_time(t, e)  = mob_proportion × mob_time(t, e) + (1 - mob_proportion) × static_time(t, e)
@@ -81,9 +80,24 @@ drift between doc and code.
 
 ### Node weights per zone
 
-See `src/data.mjs` `ZONES`. Royal Red is split into two selectable
-zone entries (`ROYAL_RED_T6` / `ROYAL_RED_T7`) rather than picking one
-of the two nodeweight variants that were both observed in source data.
+See `src/data.mjs` `ZONES`. Each Royal color actually spans two declared
+tiers in `world.xml` (which sets the Forest-biome node-weight preset it
+draws from), so each color is modeled as two selectable zone entries
+rather than picking just one: `ROYAL_BLUE_T4`/`ROYAL_BLUE_T5`,
+`ROYAL_YELLOW_T5`/`ROYAL_YELLOW_T6`, `ROYAL_RED_T6`/`ROYAL_RED_T7`.
+
+Roads node weights come from averaging per-cluster resource counts across
+every Avalonian tunnel instance in `world.xml`, grouped by that cluster's
+`type=` (12 distinct tunnel types — see `scripts/build_gamedata.py`
+`extract_roads_node_weights` and `gamedata/README.md` for the full
+extraction and per-type numbers). Within a declared tier the 12 types are
+near-identical in modeled outcome (fame/hour spans only ~2% across all T6
+types, for instance), so the calculator exposes one representative type
+per declared tier rather than all 12: the most-prevalent type by cluster
+count at each of T4/T6/T8 (`TUNNEL_LOW`/`TUNNEL_BLACK_LOW`/
+`TUNNEL_DEEP_RAID`). Modeled as one `ROADS` zone entry with a T4/T6/T8
+dropdown (`src/data.mjs` `ROAD_TYPES`), mirroring how Outlands zones use
+a Q1-Q6 quality dropdown.
 
 Outlands Z5's source data also lists T2/T3 node counts (140/240), but
 per Section 5 (T3-and-below out of scope) they're dropped entirely
@@ -99,22 +113,44 @@ normalizes over its T4/T5 weights alone.
 | `charge_fraction_enchanted` | Fraction of full charge count present on an enchanted node | All zones: **50%** |
 | `kill_time` | Flat seconds to kill a resource mob before harvesting (added once, not scaled by charges) | All zones: **10s** |
 
+### Universal fame buffs (all default OFF)
+
+Unlike the per-zone parameters above, these apply globally to every zone/
+entry at once (current and future — not snapshotted per entry), matching
+their real account-wide nature. Each is a flat multiplier on `fame_amount`
+only; none affect gathering speed/time. Combine multiplicatively with each
+other and with `gatheringfamefactor`.
+
+| Buff | Options | Multiplier |
+|---|---|---|
+| Pork Pie | T7 (default) / T7.1 / T7.2 / T7.3 | 1.15 / 1.175 / 1.2 / 1.225 |
+| Premium | on/off | 1.5 |
+| Learning Points | 1–5 destiny-board nodes (default 5) | `1 + (4/5) × nodes` — linear from 1x (0 nodes) to 5x (5 nodes) |
+
 ## 4. UI Structure
 
-- Zone selector: checkboxes grouped Royal / Outlands / Roads (Outlands
-  zones carry a Q1–Q6 selector).
-- Per-zone config panel: the 4 assumption controls above, pre-filled
-  with category defaults, with a reset action.
-- Single chart, one line per checked zone, live-updating.
+- Zone selector: single-select checkboxes grouped Royal / Outlands / Roads
+  (Outlands zones carry a Q1–Q6 dropdown; the Roads zone carries a tunnel-
+  type dropdown — see Section 2). Selecting a zone opens its config panel;
+  only one zone can be configured/staged at a time.
+- Per-zone config panel: the 4 assumption controls from Section 3,
+  pre-filled with category defaults, with a reset action. The panel's
+  sweep previews live on the chart (dashed, faded) as sliders move.
+- "Add to plot" snapshots the staged config as a permanent chart entry
+  and clears staging. The same zone can be added more than once (e.g. to
+  compare assumptions); repeat entries of the same zone cycle through
+  different marker shapes to stay visually distinguishable.
+- "On chart" list: one row per added entry, each with a remove (×) button.
+- Single chart, one line per added entry, live-updating; a marker key
+  explains tier-fill colors, marker shapes, and the dashed-preview
+  convention.
 - No editing of Section 2 constants anywhere in the UI.
-
-**Current dev-build status**: only one zone (Outlands Z7) is wired into
-`index.html` so far, to validate the interactive pieces before building
-the full multi-zone selector.
+- Buffs panel: checkboxes (+ dropdowns for Pork Pie/Learning Points, see
+  Section 3) to the right of the chart, applying globally to every entry
+  at once rather than being part of any single zone's config panel.
 
 ## 5. Explicitly Out of Scope (v1)
 
-- Player buffs (Premium, Pork Pie, Quick Learn)
 - Tool-tier constraints (assume full-access tools always)
 - Treasures
 - Off-road-vs-total-area correction for Roads

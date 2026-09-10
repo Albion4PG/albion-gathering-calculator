@@ -2,8 +2,7 @@
 //
 // Sourced programmatically from the raw client XML files in gamedata/ via
 // scripts/build_gamedata.py -> src/gamedata.generated.mjs. See
-// docs/spec.md and gamedata/README.md for provenance notes and what is
-// NOT yet sourced this way (Roads node weights).
+// docs/spec.md and gamedata/README.md for provenance notes.
 
 import { GAMEDATA } from './gamedata.generated.mjs';
 
@@ -56,27 +55,71 @@ function resolveEnchant(tableName, tier) {
 // Section 5) — dropped entirely rather than folded into the denominator.
 //
 // Royal node weights don't depend on color, only on which "declared tier"
-// preset a color draws from: Blue=T5, Yellow/Red(T6-declared)/Red2=T6,
-// Red(T7-declared)=T7 — confirmed by summing each T{n}_FR_ROY_WLD preset
-// and matching exactly against every color's previously-known weights.
+// preset a color draws from — confirmed by summing each T{n}_FR_ROY_WLD
+// preset and matching exactly against every color's previously-known
+// weights. Each color actually spans two declared tiers in world.xml, not
+// one, so each color is modeled as two zone entries:
+//   Blue: T4 (majority, 17/24 in-scope clusters) / T5 (7/24)
+//   Yellow: T5 (majority, 30/44) / T6 (14/44)
+//   Red: T6 / T7 (both declared tiers are common, no majority/minority split)
+//
+// A second T6 red-danger enchant table ("RED2") also exists in the raw
+// data and was briefly exposed as its own zone ("Royal — Red2"), but only
+// 8 of the 63 T6/T7 red-danger clusters in world.xml reference it (vs. 55
+// on "RED") — a small enough minority that it was dropped in favor of just
+// the one representative Red entry per declared tier.
 
 const ROYAL_W = GAMEDATA.ROYAL_NODE_WEIGHTS_BY_DECLARED_TIER;
 const OUT_W = GAMEDATA.OUTLANDS_NODE_WEIGHTS_BY_DECLARED_TIER;
+const ROAD_W = GAMEDATA.ROADS_NODE_WEIGHTS_BY_TYPE;
+
+// world.xml has 12 distinct tunnel `type=` values, but within a declared
+// tier they're near-identical in modeled outcome -- fame/hour across all
+// T6 types, for instance, spans only ~22.4k-22.9k (~2%). So rather than
+// exposing all 12, one representative per declared tier is picked (the
+// most-prevalent type by cluster count, ties broken arbitrarily -- none
+// occurred here):
+//   T4: TUNNEL_LOW (52 clusters) over TUNNEL_ROYAL (44)
+//   T6: TUNNEL_BLACK_LOW (90) over the other 7 T6 types (8-72 each)
+//   T8: TUNNEL_DEEP_RAID (20) over TUNNEL_DEEP (10)
+export const ROAD_TYPES = [
+  { id: 'TUNNEL_LOW', label: 'T4', nodeWeights: ROAD_W.TUNNEL_LOW },
+  { id: 'TUNNEL_BLACK_LOW', label: 'T6', nodeWeights: ROAD_W.TUNNEL_BLACK_LOW },
+  { id: 'TUNNEL_DEEP_RAID', label: 'T8', nodeWeights: ROAD_W.TUNNEL_DEEP_RAID },
+];
 
 export const ZONES = {
-  ROYAL_BLUE: {
-    id: 'ROYAL_BLUE',
-    name: 'Royal — Blue',
+  ROYAL_BLUE_T4: {
+    id: 'ROYAL_BLUE_T4',
+    name: 'Royal — Blue (T4)',
     group: 'royal',
     requiresQuality: false,
-    nodeWeights: ROYAL_W[5],
+    nodeWeights: ROYAL_W[4],
     getGff: () => GATHERING_FAME_FACTOR.royal,
     // SAFE distribution: explicit T4 rate, default (Royal DEFAULT) for T5+
     getEnchantTable: (tier) => resolveEnchant('SAFE', tier),
   },
-  ROYAL_YELLOW: {
-    id: 'ROYAL_YELLOW',
-    name: 'Royal — Yellow',
+  ROYAL_BLUE_T5: {
+    id: 'ROYAL_BLUE_T5',
+    name: 'Royal — Blue (T5)',
+    group: 'royal',
+    requiresQuality: false,
+    nodeWeights: ROYAL_W[5],
+    getGff: () => GATHERING_FAME_FACTOR.royal,
+    getEnchantTable: (tier) => resolveEnchant('SAFE', tier),
+  },
+  ROYAL_YELLOW_T5: {
+    id: 'ROYAL_YELLOW_T5',
+    name: 'Royal — Yellow (T5)',
+    group: 'royal',
+    requiresQuality: false,
+    nodeWeights: ROYAL_W[5],
+    getGff: () => GATHERING_FAME_FACTOR.royal,
+    getEnchantTable: (tier) => resolveEnchant('YELLOW', tier),
+  },
+  ROYAL_YELLOW_T6: {
+    id: 'ROYAL_YELLOW_T6',
+    name: 'Royal — Yellow (T6)',
     group: 'royal',
     requiresQuality: false,
     nodeWeights: ROYAL_W[6],
@@ -85,7 +128,7 @@ export const ZONES = {
   },
   ROYAL_RED_T6: {
     id: 'ROYAL_RED_T6',
-    name: 'Royal — Red (T6-declared)',
+    name: 'Royal — Red (T6)',
     group: 'royal',
     requiresQuality: false,
     nodeWeights: ROYAL_W[6],
@@ -94,21 +137,12 @@ export const ZONES = {
   },
   ROYAL_RED_T7: {
     id: 'ROYAL_RED_T7',
-    name: 'Royal — Red (T7-declared)',
+    name: 'Royal — Red (T7)',
     group: 'royal',
     requiresQuality: false,
     nodeWeights: ROYAL_W[7],
     getGff: () => GATHERING_FAME_FACTOR.royal,
     getEnchantTable: (tier) => resolveEnchant('RED', tier),
-  },
-  ROYAL_RED2: {
-    id: 'ROYAL_RED2',
-    name: 'Royal — Red2',
-    group: 'royal',
-    requiresQuality: false,
-    nodeWeights: ROYAL_W[6],
-    getGff: () => GATHERING_FAME_FACTOR.royal,
-    getEnchantTable: (tier) => resolveEnchant('RED2', tier),
   },
 
   OUT_Z5: {
@@ -148,42 +182,20 @@ export const ZONES = {
     getEnchantTable: (tier, q) => resolveEnchant(`OUT_${q}`, tier),
   },
 
-  // Roads node weights are NOT yet sourced from gamedata/world.xml (13MB,
-  // no per-tunnel-type preset -- needs per-cluster averaging). Hand
-  // transcribed from the original spec derivation; see gamedata/README.md.
-  ROADS_TUNNEL_LOW: {
-    id: 'ROADS_TUNNEL_LOW',
-    name: 'Roads — Tunnel (Low, T4-6)',
+  // Roads node weights are sourced from gamedata/world.xml (13MB, no
+  // per-tunnel-type preset like Royal/Outlands -- averaged per-cluster
+  // across each of the 12 distinct tunnel `type=` values instead; see
+  // scripts/build_gamedata.py extract_roads_node_weights). Each type maps
+  // to exactly one declared tier (verified, zero exceptions), but the
+  // node-count mix differs enough per type that they aren't interchangeable
+  // -- modeled as one zone with a type dropdown, mirroring Outlands' Q1-Q6.
+  ROADS: {
+    id: 'ROADS',
+    name: 'Roads of Avalon',
     group: 'roads',
     requiresQuality: false,
-    nodeWeights: { T4: 28.12, T5: 17.23, T6: 15.11 },
-    getGff: () => GATHERING_FAME_FACTOR.roads,
-    getEnchantTable: (tier) => resolveEnchant('ROADS', tier),
-  },
-  ROADS_TUNNEL_BLACK_LOW: {
-    id: 'ROADS_TUNNEL_BLACK_LOW',
-    name: 'Roads — Tunnel (Black Low, T5-7)',
-    group: 'roads',
-    requiresQuality: false,
-    nodeWeights: { T5: 20.85, T6: 21.49, T7: 16.09 },
-    getGff: () => GATHERING_FAME_FACTOR.roads,
-    getEnchantTable: (tier) => resolveEnchant('ROADS', tier),
-  },
-  ROADS_TUNNEL_DEEP: {
-    id: 'ROADS_TUNNEL_DEEP',
-    name: 'Roads — Tunnel (Deep, T6-8)',
-    group: 'roads',
-    requiresQuality: false,
-    nodeWeights: { T6: 8.00, T7: 15.80, T8: 24.80 },
-    getGff: () => GATHERING_FAME_FACTOR.roads,
-    getEnchantTable: (tier) => resolveEnchant('ROADS', tier),
-  },
-  ROADS_TUNNEL_DEEP_RAID: {
-    id: 'ROADS_TUNNEL_DEEP_RAID',
-    name: 'Roads — Tunnel (Deep Raid, T6-8)',
-    group: 'roads',
-    requiresQuality: false,
-    nodeWeights: { T6: 7.80, T7: 15.80, T8: 25.10 },
+    requiresRoadType: true,
+    roadTypes: ROAD_TYPES,
     getGff: () => GATHERING_FAME_FACTOR.roads,
     getEnchantTable: (tier) => resolveEnchant('ROADS', tier),
   },
@@ -195,3 +207,35 @@ export const CATEGORY_DEFAULTS = {
   outlands: { search_time: 10, mob_proportion: 0.25, charge_fraction_enchanted: 0.5, kill_time: 10 },
   roads: { search_time: 10, mob_proportion: 0.50, charge_fraction_enchanted: 0.5, kill_time: 10 },
 };
+
+// --- Optional fame buffs (user-tunable, all default OFF) -------------------
+// Each is a flat multiplier on fame_amount only -- they don't change
+// gathering speed/time, matching their real in-game behavior. Combine
+// multiplicatively with each other and with gatheringfamefactor.
+
+export const PORK_PIE_TIERS = ['T7', 'T7.1', 'T7.2', 'T7.3'];
+export const PORK_PIE_MULTIPLIER = { T7: 1.15, 'T7.1': 1.175, 'T7.2': 1.2, 'T7.3': 1.225 };
+export const PREMIUM_MULTIPLIER = 1.5;
+export const LEARNING_POINTS_MAX_NODES = 5;
+
+// Effect is linear from 1x (0 nodes) to 5x (5 nodes) -- each node is an
+// equal additive slice (4x total range / 5 nodes = 0.8x) of the full bonus.
+export function learningPointsMultiplier(nodes) {
+  return 1 + (4 / LEARNING_POINTS_MAX_NODES) * nodes;
+}
+
+export function defaultBuffs() {
+  return {
+    porkPie: { enabled: false, tier: 'T7' },
+    premium: { enabled: false },
+    learningPoints: { enabled: false, nodes: LEARNING_POINTS_MAX_NODES },
+  };
+}
+
+export function combinedBuffMultiplier(buffs) {
+  let mult = 1;
+  if (buffs.porkPie.enabled) mult *= PORK_PIE_MULTIPLIER[buffs.porkPie.tier];
+  if (buffs.premium.enabled) mult *= PREMIUM_MULTIPLIER;
+  if (buffs.learningPoints.enabled) mult *= learningPointsMultiplier(buffs.learningPoints.nodes);
+  return mult;
+}
