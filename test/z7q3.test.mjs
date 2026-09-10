@@ -1,21 +1,27 @@
-// Sanity test: Outlands Z7, Q3, category-default assumptions.
-// Expected values are the hand calculation worked through in chat before
-// any code existed, so this validates the implementation against that
-// independently-derived reference rather than against itself.
+// Sanity test: Outlands Z7, Q3, category-default assumptions, default T8
+// tool. Expected values were originally the hand calculation worked
+// through in chat before any code existed (no tool-tier concept at the
+// time). Once tool tier became mandatory -- always T8 by default, with
+// its own real speed factor applied even at default -- those original
+// numbers no longer apply. Recomputed independently (script in PR
+// description/session history, not by calling buildZoneStates/
+// computeThresholdSweep) from the same formula plus the T8-tool
+// ToolModifier factor per tier (T5: 0.35x, T6: 0.5x, T7: 0.7x time, from
+// harvestables.xml, confirmed identical across all 5 resource types).
 
 import { ZONES, CATEGORY_DEFAULTS } from '../src/data.mjs';
 import { computeZoneSweep } from '../src/model.mjs';
 
 const EXPECTED = [
-  { label: 'T5.0', famePerHour: 30688 },
-  { label: 'T5.1/T6.0', famePerHour: 32046 },
-  { label: 'T7.0', famePerHour: 32866 },
-  { label: 'T5.2/T6.1', famePerHour: 21433 },
-  { label: 'T7.1', famePerHour: 17934 },
-  { label: 'T5.3/T6.2', famePerHour: 9581 },
-  { label: 'T7.2', famePerHour: 7190 },
-  { label: 'T6.3', famePerHour: 2838 },
-  { label: 'T7.3', famePerHour: 1833 },
+  { label: 'T5.0', famePerHour: 45280 },
+  { label: 'T5.1/T6.0', famePerHour: 45180 },
+  { label: 'T7.0', famePerHour: 41611 },
+  { label: 'T5.2/T6.1', famePerHour: 23487 },
+  { label: 'T7.1', famePerHour: 18933 },
+  { label: 'T5.3/T6.2', famePerHour: 9787 },
+  { label: 'T7.2', famePerHour: 7273 },
+  { label: 'T6.3', famePerHour: 2848 },
+  { label: 'T7.3', famePerHour: 1836 },
 ];
 
 const TOLERANCE = 0.005; // 0.5% relative — hand calc was rounded to whole fame/hr

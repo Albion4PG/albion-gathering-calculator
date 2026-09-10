@@ -95,6 +95,41 @@ def extract_charges_and_ticks(harvestables_xml):
     )
 
 
+def extract_tool_time_factor(harvestables_xml):
+    # <ToolModifier> is keyed by tierdifference = tool_tier - node_base_tier
+    # and gives a harvest-time multiplier: negative (underpowered tool, node
+    # one tier above it) is slower, positive (overpowered tool) is faster.
+    # There's no entry below tierdifference=-1 -- a tool 2+ tiers below a
+    # node's base tier cannot harvest it at all. Identical across all 5
+    # resource types (verified) so extracted once from WOOD's block.
+    block = extract_harvestable_block(harvestables_xml, "WOOD")
+    modifier_m = re.search(r"<ToolModifier>(.*?)</ToolModifier>", block, re.S)
+    assert modifier_m, "ToolModifier block not found"
+    factors = {
+        tierdiff: float(timefactor)
+        for tierdiff, timefactor in re.findall(
+            r'<Modifier tierdifference="(-?\d)" timefactor="([0-9.]+)"', modifier_m.group(1)
+        )
+    }
+    assert factors, "no ToolModifier entries parsed"
+
+    # Cross-check every other resource type's table matches WOOD's exactly.
+    for resource in RESOURCE_TYPES:
+        if resource == "WOOD":
+            continue
+        other_block = extract_harvestable_block(harvestables_xml, resource)
+        other_m = re.search(r"<ToolModifier>(.*?)</ToolModifier>", other_block, re.S)
+        other_factors = {
+            tierdiff: float(timefactor)
+            for tierdiff, timefactor in re.findall(
+                r'<Modifier tierdifference="(-?\d)" timefactor="([0-9.]+)"', other_m.group(1)
+            )
+        }
+        assert other_factors == factors, f"{resource}'s ToolModifier table diverges from WOOD's"
+
+    return factors
+
+
 # --- 3. enchant probability tables (rareresourcedistribution.xml) ----------
 
 def extract_enchant_tables(rrd_xml):
@@ -241,6 +276,7 @@ def main():
 
     famevalue_base = extract_famevalue(items_xml)
     charges, static_tick, elemental_tick, _divergences = extract_charges_and_ticks(harvestables_xml)
+    tool_time_factor = extract_tool_time_factor(harvestables_xml)
     enchant_tables = extract_enchant_tables(rrd_xml)
     gff = extract_gff(gamedata_xml)
     royal_weights = extract_royal_node_weights(presets_xml)
@@ -252,6 +288,7 @@ def main():
         "CHARGES": charges,
         "STATIC_TICK": static_tick,
         "ELEMENTAL_TICK": elemental_tick,
+        "TOOL_TIME_FACTOR": tool_time_factor,
         "ENCHANT_TABLES": enchant_tables,
         "GATHERING_FAME_FACTOR": gff,
         "ROYAL_NODE_WEIGHTS_BY_DECLARED_TIER": royal_weights,

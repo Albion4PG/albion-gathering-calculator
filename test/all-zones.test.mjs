@@ -7,7 +7,7 @@
 // a new/changed zone entry produces NaN, a negative rate, an empty sweep,
 // or a threshold list that isn't the zone's own real values.
 
-import { ZONES, CATEGORY_DEFAULTS, ROAD_TYPES, defaultBuffs, combinedBuffMultiplier } from '../src/data.mjs';
+import { ZONES, CATEGORY_DEFAULTS, ROAD_TYPES, defaultBuffs, combinedBuffMultiplier, toolCanHarvest, toolTimeFactor } from '../src/data.mjs';
 import { computeZoneSweep } from '../src/model.mjs';
 
 const QUALITIES = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
@@ -91,6 +91,80 @@ for (const { def, quality, label } of variants) {
   const boosted = computeZoneSweep(def, 'Q3', assumptions, combinedBuffMultiplier(allOn));
   const allIncreased = boosted.every((p, i) => p.famePerHour > baseline[i].famePerHour);
   check(allIncreased, 'enabling all buffs did not strictly increase fame/hour at every threshold');
+}
+
+// Tool tier: access rule is "own base tier at any enchant, or the base
+// (unenchanted) state of the tier above at a time penalty, nothing else" --
+// per the exact matrix worked out with the user, not from harvestables.xml
+// (which has no enchant concept in its ToolModifier table at all).
+{
+  const cases = [
+    // [nodeTier, enchant, toolTier, expectHarvestable]
+    ['T5', 0, 'T6', true], ['T5', 3, 'T6', true],
+    ['T6', 0, 'T6', true], ['T6', 1, 'T6', true], ['T6', 2, 'T6', true], ['T6', 3, 'T6', true],
+    ['T7', 0, 'T6', true], // one tier up, unenchanted: reachable
+    ['T7', 1, 'T6', false], ['T7', 2, 'T6', false], ['T7', 3, 'T6', false], // one tier up, enchanted: not
+    ['T8', 0, 'T6', false], // two tiers up: never reachable
+    ['T8', 3, 'T8', true], // max tool tier is never locked out of its own tier
+  ];
+  for (const [nodeTier, enchant, toolTier, expected] of cases) {
+    const got = toolCanHarvest(nodeTier, enchant, toolTier);
+    check(got === expected, `toolCanHarvest(${nodeTier}, enchant=${enchant}, tool=${toolTier}) = ${got}, expected ${expected}`);
+  }
+
+  check(toolTimeFactor('T6', 'T6') === 1, 'same tier as tool should be 1x time');
+  check(toolTimeFactor('T7', 'T6') === 1.5, 'one tier above tool should be 1.5x time (slower)');
+  check(toolTimeFactor('T4', 'T8') === 0.25, 'far below tool tier should be fast (0.25x time)');
+
+  // Tool tier is never optional -- there's no gathering without a tool --
+  // so computeZoneSweep defaults it to 'T8' when the caller omits it.
+  check(toolCanHarvest('T8', 3, undefined) === false, "toolTier is mandatory now -- an omitted/undefined tool shouldn't parse as reaching anything");
+
+  // A restrictive tool tier must actually change computeZoneSweep's output
+  // (fewer/cheaper states reachable), not just be accepted and ignored. T8
+  // (the default) is the one tier that never excludes anything, so it's
+  // the right baseline to compare a real restriction against.
+  const def = ZONES.ROYAL_RED_T7; // has T4-T7, so a T6 tool meaningfully restricts it
+  const assumptions = CATEGORY_DEFAULTS.royal;
+  const unrestricted = computeZoneSweep(def, undefined, assumptions, 1, 'T8');
+  const restricted = computeZoneSweep(def, undefined, assumptions, 1, 'T6');
+  check(
+    restricted.length < unrestricted.length,
+    `T6 tool should exclude some threshold rows from a T4-T7 zone (unrestricted=${unrestricted.length}, restricted=${restricted.length})`
+  );
+}
+
+// Tier-above exclusions: independent per-type opt-out from the tool's
+// one-tier-above exception (T6 tool, T7.0 is the only reachable T7 state).
+{
+  const def = ZONES.ROYAL_RED_T7;
+  const assumptions = CATEGORY_DEFAULTS.royal;
+  const findT7 = (sweep) => sweep.find((p) => p.label === 'T7.0');
+
+  const neither = computeZoneSweep(def, undefined, assumptions, 1, 'T6', {});
+  const skipStatic = computeZoneSweep(def, undefined, assumptions, 1, 'T6', { noStaticTierAbove: true });
+  const skipMob = computeZoneSweep(def, undefined, assumptions, 1, 'T6', { noMobTierAbove: true });
+  const skipBoth = computeZoneSweep(def, undefined, assumptions, 1, 'T6', { noStaticTierAbove: true, noMobTierAbove: true });
+
+  check(findT7(neither) !== undefined, 'T7.0 should be present with no tier-above exclusions');
+  check(findT7(skipStatic) !== undefined, 'T7.0 should still be present when only static is skipped (falls back to mob)');
+  check(findT7(skipMob) !== undefined, 'T7.0 should still be present when only mob is skipped (falls back to static)');
+  check(findT7(skipBoth) === undefined, 'T7.0 should vanish entirely when both static and mob are skipped');
+
+  // Fame is identical across all three reachable variants -- only time (and
+  // therefore fame/hour) should differ by which route is forced.
+  const fames = [neither, skipStatic, skipMob].map((s) => findT7(s).famePerEncounter);
+  check(fames.every((f) => Math.abs(f - fames[0]) < 1e-9), 'famePerEncounter for T7.0 should be unaffected by which route is forced');
+
+  // Forcing 100% mob route should be faster (shorter time -> higher fame/hr)
+  // than forcing 100% static, since mobTime/staticTime differ; the default
+  // blend should sit strictly between the two forced extremes.
+  const mobOnlyFame = findT7(skipStatic).famePerHour;
+  const staticOnlyFame = findT7(skipMob).famePerHour;
+  const blendedFame = findT7(neither).famePerHour;
+  check(mobOnlyFame !== staticOnlyFame, 'forcing mob-only vs static-only should give different fame/hour');
+  const [lo, hi] = [Math.min(mobOnlyFame, staticOnlyFame), Math.max(mobOnlyFame, staticOnlyFame)];
+  check(blendedFame > lo && blendedFame < hi, 'default (blended) fame/hour should sit strictly between the two forced extremes');
 }
 
 console.log(failures === 0 ? `\nAll ${variants.length} zone/variant combinations passed.` : `\n${failures} check(s) failed.`);
