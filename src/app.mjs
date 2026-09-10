@@ -1,32 +1,33 @@
-// Multi-zone UI: checkbox zone selector (grouped Royal/Outlands/Roads),
-// per-zone expandable config panel (4 assumption sliders + reset), one
-// chart line per checked zone. See docs/spec.md Section 4.
+// Multi-zone UI: checkbox zone selector (grouped Royal/Outlands/Roads) opens
+// a per-zone config panel (4 assumption sliders + reset); clicking "Add to
+// plot" snapshots the current config as an entry on the chart. Entries are
+// listed under "On chart" with an X to remove them individually — the same
+// zone can be added more than once (e.g. to compare assumptions), in which
+// case repeat entries cycle through different marker shapes so they stay
+// visually distinguishable. See docs/spec.md Section 4.
 
 import { ZONES, CATEGORY_DEFAULTS } from './data.mjs';
 import { computeZoneSweep } from './model.mjs';
-import { renderLineChart, SERIES_COLORS } from './chart.mjs';
+import { renderLineChart, SERIES_COLORS, MARKER_SHAPES, markerIconSvg } from './chart.mjs';
 
 const GROUP_LABELS = { royal: 'Royal', outlands: 'Outlands', roads: 'Roads' };
 const GROUP_ORDER = ['royal', 'outlands', 'roads'];
 const QUALITIES = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
+const TIER_FILL = { T4: '#4887B0', T5: '#B73C38', T6: '#E48435', T7: '#E5BF3B', T8: '#FFFFFF' };
 
 const zoneIds = Object.keys(ZONES);
 
-function checkedZoneIds() {
-  return zoneIds.filter((id) => zoneState[id].checked);
-}
-
 // Fixed per-zone color, keyed by each zone's position in the full 13-zone
-// list -- not by check-order, so a zone's color stays the same regardless
-// of what else is checked. SERIES_COLORS has exactly one entry per zone,
-// so this never collides.
+// list -- not by check-order or add-order, so a zone's color stays the same
+// regardless of what else is checked/added. SERIES_COLORS has exactly one
+// entry per zone, so this never collides.
 function colorOf(zoneId) {
   const idx = zoneIds.indexOf(zoneId);
   return idx === -1 ? '#999' : SERIES_COLORS[idx % SERIES_COLORS.length];
 }
 
-// Per-zone UI state, seeded with category defaults. Persists across
-// check/uncheck so toggling a zone off and back on doesn't lose tweaks.
+// Per-zone draft config, seeded with category defaults. This is the "staging
+// area" a checked zone's panel edits; clicking Add to plot snapshots it.
 const zoneState = {};
 for (const id of zoneIds) {
   const def = ZONES[id];
@@ -38,17 +39,39 @@ for (const id of zoneIds) {
   };
 }
 
+// Entries actually plotted on the chart: { id, zoneId, quality, assumptions, shape }.
+let entries = [];
+let nextEntryId = 1;
+
+function entriesFor(zoneId) {
+  return entries.filter((e) => e.zoneId === zoneId);
+}
+
 const els = {
   zoneList: document.getElementById('zoneList'),
   zonePanels: document.getElementById('zonePanels'),
+  addedList: document.getElementById('addedList'),
   chart: document.getElementById('chart'),
   legend: document.getElementById('legend'),
+  markerKey: document.getElementById('markerKey'),
 };
+
+function checkedZoneIds() {
+  return zoneIds.filter((id) => zoneState[id].checked);
+}
+
+function entryLabel(entry) {
+  const def = ZONES[entry.zoneId];
+  const base = `${def.name}${def.requiresQuality ? ` (${entry.quality})` : ''}`;
+  const siblings = entriesFor(entry.zoneId);
+  if (siblings.length <= 1) return base;
+  const ordinal = siblings.findIndex((e) => e.id === entry.id) + 1;
+  return `${base} #${ordinal}`;
+}
 
 // --- zone selector -----------------------------------------------------
 
 function renderZoneList() {
-  const checkedIds = checkedZoneIds();
   els.zoneList.innerHTML = GROUP_ORDER.map((group) => {
     const ids = zoneIds.filter((id) => ZONES[id].group === group);
     const rows = ids.map((id) => {
@@ -86,13 +109,36 @@ els.zoneList.addEventListener('change', (e) => {
   }
 });
 
+// --- on-chart list (added entries) --------------------------------------
+
+function renderAddedList() {
+  if (entries.length === 0) {
+    els.addedList.innerHTML = '<div class="empty-hint">Nothing on the chart yet. Configure a zone below and click "Add to plot".</div>';
+    return;
+  }
+  els.addedList.innerHTML = entries.map((entry) => `
+    <div class="added-row">
+      ${markerIconSvg(entry.shape, colorOf(entry.zoneId))}
+      <span class="name">${entryLabel(entry)}</span>
+      <button type="button" class="remove-btn" data-role="remove" data-entry="${entry.id}" title="Remove from chart">&times;</button>
+    </div>`).join('');
+}
+
+els.addedList.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-role="remove"]');
+  if (!btn) return;
+  const entryId = Number(btn.dataset.entry);
+  entries = entries.filter((e) => e.id !== entryId);
+  renderAll();
+});
+
 // --- per-zone config panels ---------------------------------------------
 
 function renderZonePanels() {
   const checkedIds = checkedZoneIds();
 
   if (checkedIds.length === 0) {
-    els.zonePanels.innerHTML = '<div class="empty-hint">Check a zone on the left to configure it and see it on the chart.</div>';
+    els.zonePanels.innerHTML = '<div class="empty-hint">Check a zone on the left to configure it, then click "Add to plot" to put it on the chart.</div>';
     return;
   }
 
@@ -133,6 +179,7 @@ function renderZonePanels() {
             <thead><tr><th>Threshold</th><th>Label</th><th>Fame/hour</th></tr></thead>
             <tbody>${sweep.map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`).join('')}</tbody>
           </table>
+          <button type="button" class="add-btn" data-role="add" data-zone="${id}">+ Add to plot</button>
         </div>
       </div>`;
   }).join('');
@@ -147,8 +194,9 @@ els.zonePanels.addEventListener('input', (e) => {
   const value = param === 'mob_proportion' || param === 'charge_fraction_enchanted' ? raw / 100 : raw;
   zoneState[zoneId].assumptions[param] = value;
 
-  // Live-update just this card's readout/table and the chart, without a
-  // full re-render (avoids fighting focus/scroll on the slider being dragged).
+  // Live-update just this card's readout/table, without a full re-render
+  // (avoids fighting focus/scroll on the slider being dragged). Doesn't touch
+  // the chart -- draft edits only apply once "Add to plot" is clicked.
   const card = els.zonePanels.querySelector(`.zone-card[data-zone="${zoneId}"]`);
   const readout = card.querySelector(`[data-readout="${param}"]`);
   readout.textContent = param === 'mob_proportion' || param === 'charge_fraction_enchanted' ? `${raw}%` : `${raw}s`;
@@ -158,8 +206,6 @@ els.zonePanels.addEventListener('input', (e) => {
   card.querySelector('table.mini tbody').innerHTML = sweep
     .map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`)
     .join('');
-
-  renderChart();
 });
 
 els.zonePanels.addEventListener('click', (e) => {
@@ -174,28 +220,54 @@ els.zonePanels.addEventListener('click', (e) => {
   } else if (role === 'toggle') {
     zoneState[zoneId].expanded = !zoneState[zoneId].expanded;
     renderAll();
+  } else if (role === 'add') {
+    const s = zoneState[zoneId];
+    const shape = MARKER_SHAPES[entriesFor(zoneId).length % MARKER_SHAPES.length];
+    entries.push({
+      id: nextEntryId++,
+      zoneId,
+      quality: s.quality,
+      assumptions: { ...s.assumptions },
+      shape,
+    });
+    renderAll();
   }
 });
 
 // --- chart ---------------------------------------------------------------
 
 function renderChart() {
-  const checkedIds = checkedZoneIds();
-  const seriesList = checkedIds.map((id) => {
-    const def = ZONES[id];
-    const s = zoneState[id];
+  const seriesList = entries.map((entry) => {
+    const def = ZONES[entry.zoneId];
     return {
-      name: `${def.name}${def.requiresQuality ? ` (${s.quality})` : ''}`,
-      color: colorOf(id),
+      name: entryLabel(entry),
+      color: colorOf(entry.zoneId),
       group: def.group,
-      sweep: computeZoneSweep(def, s.quality, s.assumptions),
+      shape: entry.shape,
+      sweep: computeZoneSweep(def, entry.quality, entry.assumptions),
     };
   });
   renderLineChart(els.chart, seriesList);
 
   els.legend.innerHTML = seriesList
-    .map((s) => `<span class="legend-item"><span class="legend-swatch" style="background:${s.color}"></span>${s.name}</span>`)
+    .map((s) => `<span class="legend-item">${markerIconSvg(s.shape, s.color)}${s.name}</span>`)
     .join('');
+}
+
+// --- marker/symbol key ----------------------------------------------------
+
+function renderMarkerKey() {
+  const tierRow = Object.entries(TIER_FILL)
+    .map(([tier, color]) => `<span class="marker-key-item">${markerIconSvg('circle', color, '#999')}${tier}</span>`)
+    .join('');
+  const shapeRow = MARKER_SHAPES
+    .map((shape, i) => `<span class="marker-key-item">${markerIconSvg(shape, '#999')}${i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `${i + 1}th`} add of a zone</span>`)
+    .join('');
+  els.markerKey.innerHTML = `
+    <h3>Marker key</h3>
+    <div class="marker-key-row">${tierRow}</div>
+    <div class="marker-key-row">${shapeRow}</div>
+  `;
 }
 
 // --- top-level render ------------------------------------------------------
@@ -203,7 +275,9 @@ function renderChart() {
 function renderAll() {
   renderZoneList();
   renderZonePanels();
+  renderAddedList();
   renderChart();
+  renderMarkerKey();
 }
 
 renderAll();

@@ -152,6 +152,60 @@
   table.mini th { color: #888; font-weight: 600; }
   table.mini td:last-child, table.mini th:last-child { text-align: right; }
 
+  /* --- left column layout --- */
+  .zones-col { display: flex; flex-direction: column; gap: 16px; }
+
+  /* --- add-to-plot button --- */
+  .add-btn {
+    margin-top: 12px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #2563eb;
+    border-radius: 5px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .add-btn:hover { background: #1d4ed8; }
+
+  /* --- on-chart list --- */
+  .added-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0ee;
+    font-size: 0.85rem;
+  }
+  .added-row:last-child { border-bottom: none; }
+  .added-row .name { flex: 1; }
+  .added-row .remove-btn {
+    border: none;
+    background: none;
+    color: #aaa;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .added-row .remove-btn:hover { color: #dc2626; background: #fee2e2; }
+
+  /* --- marker/symbol key --- */
+  .marker-key { margin-top: 14px; padding-top: 12px; border-top: 1px solid #eee; }
+  .marker-key h3 {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #888;
+    margin: 0 0 8px;
+  }
+  .marker-key-row { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin-bottom: 8px; }
+  .marker-key-row:last-child { margin-bottom: 0; }
+  .marker-key-item { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: #555; }
+
   footer {
     max-width: 1300px;
     margin: 0 auto;
@@ -164,26 +218,33 @@
 <body>
 <header>
   <h1>Albion Gathering Fame Calculator</h1>
-  <p>Fame/hour vs. minimum-value filter threshold, one line per selected zone.</p>
+  <p>Fame/hour vs. minimum-value filter threshold, one line per zone added to the chart.</p>
 </header>
 
 <main>
-  <div class="panel">
-    <h2>Zones</h2>
-    <div id="zoneList"></div>
+  <div class="zones-col">
+    <div class="panel">
+      <h2>Zones</h2>
+      <div id="zoneList"></div>
+    </div>
+    <div class="panel">
+      <h2>On chart</h2>
+      <div id="addedList"></div>
+    </div>
   </div>
 
   <div>
     <div class="panel">
       <svg id="chart" viewBox="0 0 800 420"></svg>
       <div class="legend" id="legend"></div>
+      <div class="marker-key" id="markerKey"></div>
     </div>
     <div id="zonePanels"></div>
   </div>
 </main>
 
 <footer>
-  Game-data constants are fixed and not user-editable; only the four assumption parameters per zone are adjustable. See <a href="docs/spec.md">docs/spec.md</a> for the full model.
+  Game-data constants are fixed and not user-editable; only the four assumption parameters per zone are adjustable. Configure a zone below, then click <strong>Add to plot</strong> to add it to the chart — the same zone can be added more than once with different assumptions. See <a href="docs/spec.md">docs/spec.md</a> for the full model.
 </footer>
 
 <script type="module" src="src/app.mjs"></script>
