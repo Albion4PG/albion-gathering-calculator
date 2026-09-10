@@ -4,6 +4,15 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Albion Gathering Fame Calculator</title>
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-90Q7D6QZPJ"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-90Q7D6QZPJ');
+</script>
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
@@ -18,8 +27,9 @@
     border-bottom: 1px solid #e2e2df;
     background: #fff;
   }
+  .header-inner { max-width: 1300px; margin: 0 auto; }
   header h1 { margin: 0 0 4px; font-size: 1.4rem; }
-  header p { margin: 0; color: #666; font-size: 0.9rem; max-width: 760px; line-height: 1.45; }
+  header p { margin: 0; color: #666; font-size: 0.9rem; line-height: 1.45; }
   header p + p { margin-top: 6px; }
   main {
     display: grid;
@@ -302,13 +312,19 @@
     font-size: 0.8rem;
     color: #888;
   }
+  .support-note { margin: 10px 0 0; font-size: 0.8rem; }
+  .support-note a { color: #2563eb; font-weight: 600; text-decoration: none; }
+  .support-note a:hover { text-decoration: underline; }
+  .analytics-note { margin: 8px 0 0; font-size: 0.75rem; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Albion Gathering Fame Calculator</h1>
-  <p>Estimated fame/hour per zone if you skip any node worth less than a chosen minimum value. That minimum is the chart's x-axis: each point is "fame/hour if I only take nodes worth at least this much," swept across every real value found in that zone — pickier (further right) means fewer nodes qualify each run, but every one you do take is worth more.</p>
-  <p>Accounts for real per-charge harvest time (from the game's own tick rates), not just travel time and mob-kill time. One line per zone added to the chart.</p>
+  <div class="header-inner">
+    <h1>Albion Gathering Fame Calculator</h1>
+    <p>Estimated fame/hour per zone if you skip any node worth less than a chosen minimum value. That minimum is the chart's x-axis: each point is "fame/hour if I only take nodes worth at least this much," swept across every real value found in that zone — pickier (further right) means fewer nodes qualify each run, but every one you do take is worth more.</p>
+    <p>Accounts for real per-charge harvest time (from the game's own tick rates), not just travel time and mob-kill time. One line per zone added to the chart.</p>
+  </div>
 </header>
 
 <main>
@@ -343,6 +359,8 @@
 
 <footer>
   Game-data constants are fixed and not user-editable; only the four assumption parameters per zone are adjustable. Configure a zone below, then click <strong>Add to plot</strong> to add it to the chart — the same zone can be added more than once with different assumptions. See <a href="docs/spec.md">docs/spec.md</a> for the full model.
+  <p class="support-note">Support us on our <a href="https://www.youtube.com/@albionforpoopsandgiggles">YouTube channel</a> and <a href="https://discord.gg/WTMbWYj6Yg">Discord server</a>!</p>
+  <p class="analytics-note">This page uses Google Analytics to understand usage (including which zones/assumptions get added to the chart).</p>
 </footer>
 
 <script type="module" src="src/app.mjs"></script>
