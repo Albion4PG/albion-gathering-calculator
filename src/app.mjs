@@ -138,12 +138,9 @@ function renderZoneList() {
           </select>`
         : '';
       return `
-        <div class="zone-row ${isSelected ? 'checked' : ''}">
+        <div class="zone-row ${isSelected ? 'checked' : ''}" data-zone="${id}" data-role="select" role="button" tabindex="0" aria-pressed="${isSelected}">
           <span class="swatch" style="background:${colorOf(id)}"></span>
-          <label>
-            <input type="checkbox" data-zone="${id}" data-role="select" ${isSelected ? 'checked' : ''} autocomplete="off" />
-            ${def.name}
-          </label>
+          <span class="name">${def.name}</span>
           ${qualitySelect}${roadTypeSelect}
         </div>`;
     }).join('');
@@ -151,17 +148,36 @@ function renderZoneList() {
   }).join('');
 }
 
-// Checkboxes here behave like a single-select toggle group (only one zone
-// staged at a time), not independent checkboxes: checking one stages that
-// zone (and un-checks whichever was staged before, on re-render); unchecking
-// the currently-staged one clears staging/preview entirely.
+// Each zone row is itself a single-select toggle (only one zone staged at a
+// time): clicking an unselected row stages it (and un-stages whichever was
+// staged before, on re-render); clicking the already-selected row clears
+// staging/preview entirely. No checkbox involved -- the row's own
+// highlighted state (.checked) is the only "on" indicator.
+function toggleZoneSelection(zoneId) {
+  selectedZoneId = selectedZoneId === zoneId ? null : zoneId;
+  renderAll();
+}
+
+els.zoneList.addEventListener('click', (e) => {
+  if (e.target.closest('select')) return; // let the quality/road-type dropdown handle its own click
+  const row = e.target.closest('[data-role="select"]');
+  if (!row) return;
+  toggleZoneSelection(row.dataset.zone);
+});
+
+els.zoneList.addEventListener('keydown', (e) => {
+  if (e.target.closest('select')) return;
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const row = e.target.closest('[data-role="select"]');
+  if (!row) return;
+  e.preventDefault(); // stop the page from scrolling on Space
+  toggleZoneSelection(row.dataset.zone);
+});
+
 els.zoneList.addEventListener('change', (e) => {
   const zoneId = e.target.dataset.zone;
   if (!zoneId) return;
-  if (e.target.dataset.role === 'select') {
-    selectedZoneId = e.target.checked ? zoneId : null;
-    renderAll();
-  } else if (e.target.dataset.role === 'quality') {
+  if (e.target.dataset.role === 'quality') {
     zoneState[zoneId].quality = e.target.value;
     renderAll();
   } else if (e.target.dataset.role === 'roadType') {
