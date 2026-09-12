@@ -161,7 +161,8 @@ route is taken -- only `blended_time` (and therefore fame/hour) changes.
 
 ## 4. UI Structure
 
-- Zone selector: single-select checkboxes grouped Royal / Outlands / Roads
+- Zone selector: clickable rows (no checkbox — the row itself toggles,
+  highlighted when selected) grouped Royal / Outlands / Roads
   (Outlands zones carry a Q1–Q6 dropdown; the Roads zone carries a tunnel-
   type dropdown — see Section 2). Selecting a zone opens its config panel;
   only one zone can be configured/staged at a time.

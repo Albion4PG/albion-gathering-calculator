@@ -103,16 +103,18 @@
   .zone-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 0;
+    gap: 9px;
+    padding: 6px 8px;
+    margin: 0 -8px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    user-select: none;
   }
-  .zone-row label {
-    display: flex;
-    align-items: center;
-    gap: 7px;
+  .zone-row:hover { background: #eff4ff; }
+  .zone-row .name {
     font-size: 0.87rem;
     flex: 1;
-    cursor: pointer;
   }
   .zone-row .swatch {
     width: 10px;
@@ -121,7 +123,10 @@
     flex: none;
     visibility: hidden;
   }
+  .zone-row.checked { background: #eff4ff; border-color: #2563eb; }
   .zone-row.checked .swatch { visibility: visible; }
+  .zone-row.checked .name { font-weight: 600; color: #1d4ed8; }
+  .zone-row:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
   .zone-row select.quality-select {
     width: 62px;
     padding: 2px 4px;
