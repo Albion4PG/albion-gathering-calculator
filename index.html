@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Albion Gathering Fame Calculator</title>
 
+<!-- Applies a saved manual theme choice before first paint, so there's no
+     flash of the wrong theme. No saved choice = follow the OS/browser
+     (the CSS media query below handles that case on its own). -->
+<script>
+  (function () {
+    var saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', saved);
+    }
+  })();
+</script>
+
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-90Q7D6QZPJ"></script>
 <script>
@@ -14,23 +26,139 @@
   gtag('config', 'G-90Q7D6QZPJ');
 </script>
 <style>
-  :root { color-scheme: light; }
+  :root {
+    color-scheme: light;
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --surface-soft: #fafaf9;
+    --border: #e2e2df;
+    --border-soft: #eeeeee;
+    --border-softer: #f0f0ee;
+    --input-border: #cccccc;
+    --text: #1a1a1a;
+    --text-secondary: #333333;
+    --text-muted: #666666;
+    --text-muted-2: #888888;
+    --text-faint: #aaaaaa;
+    --accent: #2563eb;
+    --accent-dark: #1d4ed8;
+    --accent-wash: #eff4ff;
+    --danger: #dc2626;
+    --danger-wash: #fee2e2;
+    --icon-bg: #d8d8d4;
+    --btn-soft-bg: #f3f3f1;
+    --btn-soft-hover-bg: #eaeae7;
+    --tooltip-bg: #2b2b28;
+    --tooltip-text: #f5f5f3;
+    --chart-bg: #ffffff;
+    --gridline: #eeeeee;
+    --axis-line: #999999;
+    --on-accent: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #17181a;
+      --surface: #202124;
+      --surface-soft: #26282b;
+      --border: #35373b;
+      --border-soft: #2c2e32;
+      --border-softer: #2c2e32;
+      --input-border: #46484d;
+      --text: #eceeef;
+      --text-secondary: #cdd0d3;
+      --text-muted: #9a9ea4;
+      --text-muted-2: #86898f;
+      --text-faint: #6b6e73;
+      --accent: #5b8def;
+      --accent-dark: #7ea3f2;
+      --accent-wash: #1c2740;
+      --danger: #f2685f;
+      --danger-wash: #3a1f1f;
+      --icon-bg: #3a3c40;
+      --btn-soft-bg: #2a2c30;
+      --btn-soft-hover-bg: #35373b;
+      --tooltip-bg: #0e0f10;
+      --tooltip-text: #f5f5f3;
+      --chart-bg: #202124;
+      --gridline: #2c2e32;
+      --axis-line: #6b6e73;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #17181a;
+    --surface: #202124;
+    --surface-soft: #26282b;
+    --border: #35373b;
+    --border-soft: #2c2e32;
+    --border-softer: #2c2e32;
+    --input-border: #46484d;
+    --text: #eceeef;
+    --text-secondary: #cdd0d3;
+    --text-muted: #9a9ea4;
+    --text-muted-2: #86898f;
+    --text-faint: #6b6e73;
+    --accent: #5b8def;
+    --accent-dark: #7ea3f2;
+    --accent-wash: #1c2740;
+    --danger: #f2685f;
+    --danger-wash: #3a1f1f;
+    --icon-bg: #3a3c40;
+    --btn-soft-bg: #2a2c30;
+    --btn-soft-hover-bg: #35373b;
+    --tooltip-bg: #0e0f10;
+    --tooltip-text: #f5f5f3;
+    --chart-bg: #202124;
+    --gridline: #2c2e32;
+    --axis-line: #6b6e73;
+  }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    background: #f7f7f5;
-    color: #1a1a1a;
+    background: var(--bg);
+    color: var(--text);
   }
   header {
     padding: 20px 28px 12px;
-    border-bottom: 1px solid #e2e2df;
-    background: #fff;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
   }
   .header-inner { max-width: 1300px; margin: 0 auto; }
+  .header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
   header h1 { margin: 0 0 4px; font-size: 1.4rem; }
-  header p { margin: 0; color: #666; font-size: 0.9rem; line-height: 1.45; }
+  header p { margin: 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.45; }
   header p + p { margin-top: 6px; }
+
+  .theme-switch {
+    display: flex;
+    flex: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .theme-switch button {
+    padding: 5px 10px;
+    font-size: 0.76rem;
+    font-family: inherit;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: none;
+    border-left: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .theme-switch button:first-child { border-left: none; }
+  .theme-switch button:hover { background: var(--accent-wash); }
+  .theme-switch button[aria-pressed="true"] {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
   main {
     display: grid;
     grid-template-columns: 300px 1fr;
@@ -52,12 +180,12 @@
       padding-left: 0;
       padding-top: 16px;
       border-left: none;
-      border-top: 1px solid #eee;
+      border-top: 1px solid var(--border-soft);
     }
   }
   .panel {
-    background: #fff;
-    border: 1px solid #e2e2df;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 18px 20px;
   }
@@ -70,7 +198,7 @@
     width: 190px;
     flex: none;
     padding-left: 22px;
-    border-left: 1px solid #eee;
+    border-left: 1px solid var(--border-soft);
   }
   .buffs-panel h2 { font-size: 0.95rem; margin: 0 0 14px; }
   .buff-item { padding: 7px 0; font-size: 0.85rem; }
@@ -87,7 +215,7 @@
     font-size: 0.78rem;
   }
   .buff-item select:disabled { opacity: 0.45; }
-  .tool-tier-item { margin-top: 4px; padding-top: 12px; border-top: 1px solid #eee; }
+  .tool-tier-item { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
   .tool-tier-item .label-text { display: flex; align-items: center; gap: 5px; cursor: default; }
 
   /* --- zone selector --- */
@@ -97,7 +225,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    color: #888;
+    color: var(--text-muted-2);
     margin: 0 0 8px;
   }
   .zone-row {
@@ -111,7 +239,7 @@
     cursor: pointer;
     user-select: none;
   }
-  .zone-row:hover { background: #eff4ff; }
+  .zone-row:hover { background: var(--accent-wash); }
   .zone-row .name {
     font-size: 0.87rem;
     flex: 1;
@@ -123,10 +251,10 @@
     flex: none;
     visibility: hidden;
   }
-  .zone-row.checked { background: #eff4ff; border-color: #2563eb; }
+  .zone-row.checked { background: var(--accent-wash); border-color: var(--accent); }
   .zone-row.checked .swatch { visibility: visible; }
-  .zone-row.checked .name { font-weight: 600; color: #1d4ed8; }
-  .zone-row:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+  .zone-row.checked .name { font-weight: 600; color: var(--accent-dark); }
+  .zone-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .zone-row select.quality-select {
     width: 62px;
     padding: 2px 4px;
@@ -145,10 +273,10 @@
     justify-content: space-between;
     font-size: 0.82rem;
     margin-bottom: 4px;
-    color: #333;
+    color: var(--text-secondary);
   }
   .field .label-text { display: flex; align-items: center; gap: 5px; }
-  .field .val { font-variant-numeric: tabular-nums; color: #2563eb; font-weight: 600; }
+  .field .val { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 600; }
   .field input[type="range"] { width: 100%; }
 
   /* --- hover/focus info tooltip --- */
@@ -160,8 +288,8 @@
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: #d8d8d4;
-    color: #666;
+    background: var(--icon-bg);
+    color: var(--text-muted);
     font-size: 0.68rem;
     font-weight: 700;
     line-height: 1;
@@ -177,8 +305,8 @@
     width: 200px;
     padding: 7px 9px;
     border-radius: 5px;
-    background: #2b2b28;
-    color: #f5f5f3;
+    background: var(--tooltip-bg);
+    color: var(--tooltip-text);
     font-size: 0.74rem;
     font-weight: 400;
     line-height: 1.35;
@@ -193,7 +321,7 @@
     left: 50%;
     transform: translateX(-50%);
     border: 5px solid transparent;
-    border-top-color: #2b2b28;
+    border-top-color: var(--tooltip-bg);
   }
   .info-icon:hover .tooltip-text,
   .info-icon:focus .tooltip-text,
@@ -202,10 +330,11 @@
   }
   select {
     padding: 6px 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--input-border);
     border-radius: 4px;
     font-size: 0.9rem;
-    background: #fff;
+    background: var(--surface);
+    color: var(--text);
   }
   button {
     font-family: inherit;
@@ -216,46 +345,46 @@
   svg#chart {
     width: 100%;
     height: 420px;
-    background: #fff;
+    background: var(--chart-bg);
   }
-  .gridline { stroke: #eee; stroke-width: 1; }
-  .axis-line { stroke: #999; stroke-width: 1; }
-  .axis-label { font-size: 13px; fill: #666; }
-  .axis-title { font-size: 14px; fill: #444; font-weight: 600; }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .axis-line { stroke: var(--axis-line); stroke-width: 1; }
+  .axis-label { font-size: 13px; fill: var(--text-muted); }
+  .axis-title { font-size: 14px; fill: var(--text-secondary); font-weight: 600; }
   .legend { display: flex; flex-wrap: wrap; gap: 12px 18px; margin-top: 10px; font-size: 0.8rem; }
   .legend-item { display: flex; align-items: center; gap: 6px; }
-  .legend-item.preview { color: #888; font-style: italic; }
+  .legend-item.preview { color: var(--text-muted-2); font-style: italic; }
   .legend-swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 
-  .preview-hint { margin: 0 0 10px; font-size: 0.78rem; color: #888; font-style: italic; }
+  .preview-hint { margin: 0 0 10px; font-size: 0.78rem; color: var(--text-muted-2); font-style: italic; }
 
   /* --- per-zone config cards --- */
   #zonePanels { margin-top: 20px; display: flex; flex-direction: column; gap: 14px; }
-  .zone-card { border: 1px solid #e2e2df; border-radius: 8px; background: #fff; overflow: hidden; }
+  .zone-card { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; }
   .zone-card-header {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 12px 16px;
-    background: #fafaf9;
+    background: var(--surface-soft);
   }
   .zone-card-header .swatch { width: 11px; height: 11px; border-radius: 50%; flex: none; }
   .zone-card-header .name { font-weight: 600; font-size: 0.9rem; flex: 1; }
-  .zone-card-body { padding: 16px; border-top: 1px solid #eee; }
+  .zone-card-body { padding: 16px; border-top: 1px solid var(--border-soft); }
   .zone-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
   .zone-card-reset {
     padding: 5px 10px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--input-border);
     border-radius: 4px;
-    background: #f3f3f1;
+    background: var(--btn-soft-bg);
     font-size: 0.78rem;
   }
-  .zone-card-reset:hover { background: #eaeae7; }
-  .empty-hint { color: #888; font-size: 0.85rem; padding: 8px 0; }
+  .zone-card-reset:hover { background: var(--btn-soft-hover-bg); }
+  .empty-hint { color: var(--text-muted-2); font-size: 0.85rem; padding: 8px 0; }
 
   table.mini { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.78rem; }
-  table.mini th, table.mini td { text-align: left; padding: 3px 8px; border-bottom: 1px solid #f0f0ee; }
-  table.mini th { color: #888; font-weight: 600; }
+  table.mini th, table.mini td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--border-softer); }
+  table.mini th { color: var(--text-muted-2); font-weight: 600; }
   table.mini td:last-child, table.mini th:last-child { text-align: right; }
 
   /* --- left column layout --- */
@@ -266,14 +395,14 @@
     margin-top: 12px;
     width: 100%;
     padding: 8px 10px;
-    border: 1px solid #2563eb;
+    border: 1px solid var(--accent);
     border-radius: 5px;
-    background: #2563eb;
-    color: #fff;
+    background: var(--accent);
+    color: var(--on-accent);
     font-size: 0.85rem;
     font-weight: 600;
   }
-  .add-btn:hover { background: #1d4ed8; }
+  .add-btn:hover { background: var(--accent-dark); }
 
   /* --- on-chart list --- */
   .added-row {
@@ -281,7 +410,7 @@
     align-items: center;
     gap: 8px;
     padding: 6px 0;
-    border-bottom: 1px solid #f0f0ee;
+    border-bottom: 1px solid var(--border-softer);
     font-size: 0.85rem;
   }
   .added-row:last-child { border-bottom: none; }
@@ -289,38 +418,38 @@
   .added-row .remove-btn {
     border: none;
     background: none;
-    color: #aaa;
+    color: var(--text-faint);
     font-size: 1rem;
     line-height: 1;
     cursor: pointer;
     padding: 2px 7px;
     border-radius: 4px;
   }
-  .added-row .remove-btn:hover { color: #dc2626; background: #fee2e2; }
+  .added-row .remove-btn:hover { color: var(--danger); background: var(--danger-wash); }
 
   /* --- marker/symbol key --- */
-  .marker-key { margin-top: 14px; padding-top: 12px; border-top: 1px solid #eee; }
+  .marker-key { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
   .marker-key h3 {
     font-size: 0.78rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    color: #888;
+    color: var(--text-muted-2);
     margin: 0 0 8px;
   }
   .marker-key-row { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin-bottom: 8px; }
   .marker-key-row:last-child { margin-bottom: 0; }
-  .marker-key-item { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: #555; }
+  .marker-key-item { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: var(--text-muted); }
 
   footer {
     max-width: 1300px;
     margin: 0 auto;
     padding: 0 28px 32px;
     font-size: 0.8rem;
-    color: #888;
+    color: var(--text-muted-2);
   }
   .support-note { margin: 10px 0 0; font-size: 0.8rem; }
-  .support-note a { color: #2563eb; font-weight: 600; text-decoration: none; }
+  .support-note a { color: var(--accent); font-weight: 600; text-decoration: none; }
   .support-note a:hover { text-decoration: underline; }
   .analytics-note { margin: 8px 0 0; font-size: 0.75rem; }
 </style>
@@ -328,7 +457,14 @@
 <body>
 <header>
   <div class="header-inner">
-    <h1>Albion Gathering Fame Calculator</h1>
+    <div class="header-top">
+      <h1>Albion Gathering Fame Calculator</h1>
+      <div class="theme-switch" role="group" aria-label="Color theme" id="themeSwitch">
+        <button type="button" data-theme-choice="auto">Auto</button>
+        <button type="button" data-theme-choice="light">Light</button>
+        <button type="button" data-theme-choice="dark">Dark</button>
+      </div>
+    </div>
     <p>Estimated fame/hour per zone if you skip any node worth less than a chosen minimum value. That minimum is the chart's x-axis: each point is "fame/hour if I only take nodes worth at least this much," swept across every real value found in that zone — pickier (further right) means fewer nodes qualify each run, but every one you do take is worth more.</p>
     <p>Accounts for real per-charge harvest time (from the game's own tick rates), not just travel time and mob-kill time. One line per zone added to the chart.</p>
   </div>

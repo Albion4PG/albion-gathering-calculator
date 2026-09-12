@@ -161,6 +161,10 @@ route is taken -- only `blended_time` (and therefore fame/hour) changes.
 
 ## 4. UI Structure
 
+- Theme: follows the OS/browser color-scheme preference by default, with
+  a manual Auto/Light/Dark toggle in the header that overrides it; the
+  explicit choice persists (`localStorage`) and always wins over the OS
+  preference until switched back to Auto.
 - Zone selector: clickable rows (no checkbox — the row itself toggles,
   highlighted when selected) grouped Royal / Outlands / Roads
   (Outlands zones carry a Q1–Q6 dropdown; the Roads zone carries a tunnel-

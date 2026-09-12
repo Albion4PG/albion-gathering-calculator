@@ -476,3 +476,31 @@ renderAll();
 // re-render from it once more after load to override any such restoration.
 window.addEventListener('load', renderAll);
 window.addEventListener('pageshow', renderAll);
+
+// --- theme switch (auto/light/dark) ---------------------------------------
+// A tiny inline script in index.html's <head> already applies any saved
+// choice before first paint (avoids a flash); this just wires up the
+// buttons and keeps their pressed-state in sync with the current choice.
+
+function renderThemeSwitch() {
+  const current = document.documentElement.getAttribute('data-theme') || 'auto';
+  document.querySelectorAll('#themeSwitch button').forEach((btn) => {
+    btn.setAttribute('aria-pressed', String(btn.dataset.themeChoice === current));
+  });
+}
+
+document.getElementById('themeSwitch').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const choice = btn.dataset.themeChoice;
+  if (choice === 'auto') {
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.removeItem('theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', choice);
+    localStorage.setItem('theme', choice);
+  }
+  renderThemeSwitch();
+});
+
+renderThemeSwitch();
