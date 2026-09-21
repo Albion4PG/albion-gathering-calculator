@@ -130,11 +130,30 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
+    flex-wrap: wrap;
+    gap: 10px 16px;
   }
   header h1 { margin: 0 0 4px; font-size: 1.4rem; }
   header p { margin: 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.45; }
   header p + p { margin-top: 6px; }
+
+  .header-actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 10px;
+  }
+  .feedback-link {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 5px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .feedback-link:hover { background: var(--accent-wash); }
 
   .theme-switch {
     display: flex;
@@ -459,10 +478,13 @@
   <div class="header-inner">
     <div class="header-top">
       <h1>Albion Gathering Fame Calculator</h1>
-      <div class="theme-switch" role="group" aria-label="Color theme" id="themeSwitch">
-        <button type="button" data-theme-choice="auto">Auto</button>
-        <button type="button" data-theme-choice="light">Light</button>
-        <button type="button" data-theme-choice="dark">Dark</button>
+      <div class="header-actions">
+        <a class="feedback-link" href="https://github.com/Albion4PG/albion-gathering-calculator/issues/new?title=%5BFeedback%5D%20" target="_blank" rel="noopener noreferrer">Leave feedback</a>
+        <div class="theme-switch" role="group" aria-label="Color theme" id="themeSwitch">
+          <button type="button" data-theme-choice="auto">Auto</button>
+          <button type="button" data-theme-choice="light">Light</button>
+          <button type="button" data-theme-choice="dark">Dark</button>
+        </div>
       </div>
     </div>
     <p>Estimated fame/hour per zone if you skip any node worth less than a chosen minimum value. That minimum is the chart's x-axis: each point is "fame/hour if I only take nodes worth at least this much," swept across every real value found in that zone — pickier (further right) means fewer nodes qualify each run, but every one you do take is worth more.</p>
