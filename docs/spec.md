@@ -209,8 +209,9 @@ bonuses on any tool or gear passive.
 
 ## 4. UI Structure
 
-- Header: states the Section 1 `fame_amount` formula (as native MathML) at the
-  top of the intro text, labeled an informed assumption rather than something
+- Header: states the Section 1 `fame_amount` formula (as native MathML) just
+  below the intro text — one line on desktop, an aligned three-row equation at
+  the 760px mobile breakpoint — labeled an informed assumption rather than something
   read from the game files — the inputs' values come from the files, but how
   they combine (multiplying Premium/Learning Points, summing the yield
   terms, scaling by 1 + yield) is a modeling choice.

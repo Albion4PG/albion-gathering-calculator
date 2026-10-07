@@ -138,7 +138,7 @@
   header p + p { margin-top: 6px; }
 
   .fame-model {
-    margin: 10px 0 14px;
+    margin: 14px 0 6px;
     padding: 10px 14px 12px;
     background: var(--surface-soft);
     border: 1px solid var(--border-soft);
@@ -150,6 +150,12 @@
   .fame-model-legend { margin-top: 2px; font-size: 0.78rem; }
   .fame-model a { color: var(--accent); }
   .math-scroll { overflow-x: auto; padding: 4px 0; }
+  .math-narrow { display: none; }
+  @media (max-width: 760px) {
+    .math-wide { display: none; }
+    .math-narrow { display: block; }
+    .header-top { margin-bottom: 8px; }
+  }
   .fame-model math {
     font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", "Noto Sans Math", math, serif;
     font-size: 1.2rem;
@@ -539,9 +545,34 @@
         </div>
       </div>
     </div>
+    <p>Estimated fame/hour per zone if you skip any node worth less than a chosen minimum value. That minimum is the chart's x-axis: each point is "fame/hour if I only take nodes worth at least this much," swept across every real value found in that zone — pickier (further right) means fewer nodes qualify each run, but every one you do take is worth more.</p>
+    <p>Accounts for real per-charge harvest time (from the game's own tick rates), not just travel time and mob-kill time. One line per zone added to the chart.</p>
     <aside class="fame-model" aria-label="Fame model">
       <p class="fame-model-note"><strong>Fame model</strong> — an informed assumption, not read from the game files. The files give each input&rsquo;s value, but not how the game combines them.</p>
-      <div class="math-scroll">
+      <div class="math-scroll math-wide">
+        <math display="block" aria-label="F of t and e equals v of t and e, times c of t, times phi sub e, times g, times M Premium times M Learning Points, times one plus y Pork Pie plus y Tool of t plus y Gear of t">
+          <mrow>
+            <mi>F</mi><mo stretchy="false">(</mo><mi>t</mi><mo>,</mo><mi>e</mi><mo stretchy="false">)</mo>
+            <mo>=</mo>
+            <mi>v</mi><mo stretchy="false">(</mo><mi>t</mi><mo>,</mo><mi>e</mi><mo stretchy="false">)</mo>
+            <mo>&sdot;</mo><mi>c</mi><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo>
+            <mo>&sdot;</mo><msub><mi>&phi;</mi><mi>e</mi></msub>
+            <mo>&sdot;</mo><mi>g</mi>
+            <mo>&sdot;</mo><msub><mi>M</mi><mtext>Prem</mtext></msub>
+            <mo>&sdot;</mo><msub><mi>M</mi><mtext>LP</mtext></msub>
+            <mo>&sdot;</mo>
+            <mrow>
+              <mo>(</mo>
+              <mn>1</mn>
+              <mo>+</mo><msub><mi>y</mi><mtext>Pie</mtext></msub>
+              <mo>+</mo><msub><mi>y</mi><mtext>Tool</mtext></msub><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo>
+              <mo>+</mo><msub><mi>y</mi><mtext>Gear</mtext></msub><mo stretchy="false">(</mo><mi>t</mi><mo stretchy="false">)</mo>
+              <mo>)</mo>
+            </mrow>
+          </mrow>
+        </math>
+      </div>
+      <div class="math-scroll math-narrow">
         <math display="block" aria-label="F of t and e equals v of t and e, times c of t, times phi sub e, times g; times M Premium times M Learning Points; times one plus y Pork Pie plus y Tool of t plus y Gear of t">
           <mtable columnalign="right left" columnspacing="0.5em" rowspacing="0.35em">
             <mtr>
@@ -582,8 +613,6 @@
       </div>
       <p class="fame-model-legend"><i>F</i> fame from one node of tier <i>t</i>, enchant <i>e</i> &middot; <i>v</i> fame per resource &middot; <i>c</i> resources per node &middot; <i>&phi;<sub>e</sub></i> charge share left on enchanted nodes &middot; <i>g</i> zone fame factor &middot; <i>M</i> Premium, Learning Points &middot; <i>y</i> gathering yield from Pork Pie, Avalonian tool and gear. The multiplying, the summing of the <i>y</i> terms and the (1&nbsp;+&nbsp;<i>y</i>) scaling are our assumptions. Sources: <a href="docs/spec.md">docs/spec.md</a>.</p>
     </aside>
-    <p>Estimated fame/hour per zone if you skip any node worth less than a chosen minimum value. That minimum is the chart's x-axis: each point is "fame/hour if I only take nodes worth at least this much," swept across every real value found in that zone — pickier (further right) means fewer nodes qualify each run, but every one you do take is worth more.</p>
-    <p>Accounts for real per-charge harvest time (from the game's own tick rates), not just travel time and mob-kill time. One line per zone added to the chart.</p>
   </div>
 </header>
 
