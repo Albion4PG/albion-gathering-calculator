@@ -209,6 +209,11 @@ bonuses on any tool or gear passive.
 
 ## 4. UI Structure
 
+- Header: states the Section 1 `fame_amount` formula (as native MathML) at the
+  top of the intro text, labeled an informed assumption rather than something
+  read from the game files — the inputs' values come from the files, but how
+  they combine (multiplying Premium/Learning Points, summing the yield
+  terms, scaling by 1 + yield) is a modeling choice.
 - Theme: follows the OS/browser color-scheme preference by default, with
   a manual Auto/Light/Dark toggle in the header that overrides it; the
   explicit choice persists (`localStorage`) and always wins over the OS
