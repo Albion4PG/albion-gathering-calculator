@@ -51,6 +51,40 @@ export function toolTimeFactor(baseTier, toolTier) {
   return TOOL_TIME_FACTOR[String(diff)];
 }
 
+// --- Gathering yield (Avalonian tools + gathering gear) --------------------
+// From spells.xml via each item's passive (see build_gamedata.py's
+// extract_gathering_yield). Yield multiplies *resources per node*, never
+// fame, so none of this feeds buildZoneStates / fame-per-hour -- it's only
+// surfaced as a per-node-tier readout. Both sources are bonuses on the same
+// stat and are summed, not multiplied.
+//   - Avalonian tool: flat bonus on node tiers 2..tool tier, from equip.
+//   - Gear piece: per-stack bonus on node tiers 2..gear tier, stacking once
+//     per GEAR_PULSE_SECONDS up to GEAR_MAX_STACKS; modeled fully stacked.
+export const GATHERING_YIELD = GAMEDATA.GATHERING_YIELD;
+export const GEAR_TIERS = Object.keys(GATHERING_YIELD.AVALON_TOOL);
+export const GEAR_PIECES = Object.keys(GATHERING_YIELD.GEAR_PER_STACK); // HEAD, CHEST, FEET
+export const NODE_TIERS = Object.keys(FAMEVALUE_BASE);
+
+export function yieldBonusByTier(buffs) {
+  const gearTierNum = tierNum(buffs.gatheringGear.tier);
+  const toolTierNum = tierNum(buffs.toolTier);
+  const bonusByTier = {};
+  for (const nodeTier of NODE_TIERS) {
+    const n = tierNum(nodeTier);
+    let bonus = 0;
+    if (buffs.avalonianTool && n <= toolTierNum) bonus += GATHERING_YIELD.AVALON_TOOL[buffs.toolTier];
+    if (n <= gearTierNum) {
+      for (const piece of GEAR_PIECES) {
+        if (buffs.gatheringGear.equipped[piece]) {
+          bonus += GATHERING_YIELD.GEAR_PER_STACK[piece][buffs.gatheringGear.tier] * GATHERING_YIELD.GEAR_MAX_STACKS;
+        }
+      }
+    }
+    bonusByTier[nodeTier] = bonus;
+  }
+  return bonusByTier;
+}
+
 export const GATHERING_FAME_FACTOR = {
   royal: GAMEDATA.GATHERING_FAME_FACTOR.safe, // safe/yellow/orange/red all 1.0 in source
   outlands: {
@@ -275,6 +309,13 @@ export function defaultBuffs() {
     // slower one-tier-up static node, but still take the mob.
     noStaticTierAbove: true,
     noMobTierAbove: false,
+    // Yield-only (see yieldBonusByTier) -- no effect on fame/hour. Both
+    // default off, like the fame buffs above; gear tier defaults to the top.
+    avalonianTool: false,
+    gatheringGear: {
+      tier: GEAR_TIERS[GEAR_TIERS.length - 1],
+      equipped: Object.fromEntries(GEAR_PIECES.map((piece) => [piece, false])),
+    },
   };
 }
 

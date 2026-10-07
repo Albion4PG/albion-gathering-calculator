@@ -159,6 +159,34 @@ independently: "Skip static nodes one tier above" (default **on**) and
 couldn't reach it at all. `fame_amount` is identical regardless of which
 route is taken -- only `blended_time` (and therefore fame/hour) changes.
 
+### Gathering yield: Avalonian tool + gathering gear (readout only)
+
+Resource **yield** means extra resources per node — it does not change
+fame, so none of this feeds the formula in Section 1 or moves the chart.
+It's surfaced as a per-node-tier "Resource yield bonus" readout in the
+Buffs panel. Sourced from `spells.xml` by following each item's passive
+(`items.xml` `<craftspell>` → passive → effect; see
+`extract_gathering_yield` in `scripts/build_gamedata.py`), cross-checked
+identical across all 5 resource types. There are no gathering-*speed*
+bonuses on any tool or gear passive.
+
+- **Avalonian tool** (checkbox next to Tool tier): a flat bonus from the
+  moment it's equipped, by the selected tool tier — T4 +10%, T5 +12.5%,
+  T6 +15%, T7 +17.5%, T8 +20% — applying to node tiers 2 up to the tool's
+  tier.
+- **Gathering gear** (tier dropdown + Head / Chest / Feet checkboxes): each
+  equipped piece gains one stack every 30s up to 10 stacks, applying to node
+  tiers 2 up to the piece's tier. Modeled fully stacked (10 stacks). Per
+  stack — Chest: T4 0.5%, T5 1%, T6 1.5%, T7 2.5%, T8 3.5%; Head and Feet
+  (each): half of that. A full set at 10 stacks is therefore +10/20/30/50/70%
+  for T4–T8.
+- The sources **add** (they are bonuses on the same stat): a T8 Avalonian tool
+  plus a full T8 set is +90% on T8 nodes. Because each is capped at its own
+  tier, lower-tier gear under a higher-tier tool tapers by node tier (T8
+  tool + full T6 set = 50% on T4–T6 nodes, 20% on T7–T8).
+- Not verified from the data: whether stacks reset or decay (e.g. on combat
+  or unequipping), and whether the two sources add vs. multiply in-game.
+
 ## 4. UI Structure
 
 - Theme: follows the OS/browser color-scheme preference by default, with
@@ -185,13 +213,17 @@ route is taken -- only `blended_time` (and therefore fame/hour) changes.
 - Buffs panel: checkboxes (+ dropdowns for Pork Pie/Learning Points, see
   Section 3) to the right of the chart, applying globally to every entry
   at once rather than being part of any single zone's config panel. Also
-  carries the universal Tool Tier dropdown (T4–T8, default T8).
+  carries the universal Tool Tier dropdown (T4–T8, default T8) with an
+  Avalonian-tool checkbox beneath it, plus the Gathering gear tier dropdown,
+  Head/Chest/Feet checkboxes and the yield readout (all default off).
 
 ## 5. Explicitly Out of Scope (v1)
 
 - Treasures
 - Off-road-vs-total-area correction for Roads
 - T3 and below
+- Anything downstream of yield (resources/hour, silver/hour) — yield is shown
+  as a readout only; see "Gathering yield" in Section 3
 - Mists zones (constants present in `src/data.mjs` for completeness,
   not wired into any zone definition — no node-weight data available)
 

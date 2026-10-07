@@ -7,7 +7,7 @@
 // a new/changed zone entry produces NaN, a negative rate, an empty sweep,
 // or a threshold list that isn't the zone's own real values.
 
-import { ZONES, CATEGORY_DEFAULTS, ROAD_TYPES, defaultBuffs, combinedBuffMultiplier, toolCanHarvest, toolTimeFactor } from '../src/data.mjs';
+import { ZONES, CATEGORY_DEFAULTS, ROAD_TYPES, defaultBuffs, combinedBuffMultiplier, toolCanHarvest, toolTimeFactor, yieldBonusByTier, GEAR_PIECES, GATHERING_YIELD } from '../src/data.mjs';
 import { computeZoneSweep } from '../src/model.mjs';
 
 const QUALITIES = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
@@ -165,6 +165,58 @@ for (const { def, quality, label } of variants) {
   check(mobOnlyFame !== staticOnlyFame, 'forcing mob-only vs static-only should give different fame/hour');
   const [lo, hi] = [Math.min(mobOnlyFame, staticOnlyFame), Math.max(mobOnlyFame, staticOnlyFame)];
   check(blendedFame > lo && blendedFame < hi, 'default (blended) fame/hour should sit strictly between the two forced extremes');
+}
+
+// --- Gathering yield (Avalonian tool + gathering gear) -------------------------
+// Expected values are hand-copied from the per-stack table in the spec (itself
+// read from spells.xml), NOT derived from GATHERING_YIELD -- so an extraction
+// slip or a formula bug can't silently agree with itself. Yield is a readout
+// only (never fed into fame), so these cover yieldBonusByTier alone.
+{
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const gearOn = (tier, pieces) => ({
+    tier,
+    equipped: Object.fromEntries(GEAR_PIECES.map((p) => [p, pieces.includes(p)])),
+  });
+  const buffsWith = (overrides) => ({ ...defaultBuffs(), ...overrides });
+  const bonus = (b) => Object.values(yieldBonusByTier(b));
+
+  check(GATHERING_YIELD.GEAR_MAX_STACKS === 10, 'gear should max out at 10 stacks');
+  check(GATHERING_YIELD.GEAR_PULSE_SECONDS === 30, 'gear should gain one stack per 30s');
+
+  check(bonus(defaultBuffs()).every((v) => v === 0), 'default buffs should give zero yield bonus on every tier');
+
+  // Full set (head + chest + feet) at 10 stacks, on a node of the gear's own tier.
+  const fullSet = { T4: 0.10, T5: 0.20, T6: 0.30, T7: 0.50, T8: 0.70 };
+  for (const [tier, expected] of Object.entries(fullSet)) {
+    const got = yieldBonusByTier(buffsWith({ gatheringGear: gearOn(tier, ['HEAD', 'CHEST', 'FEET']) }))[tier];
+    check(near(got, expected), `full ${tier} gear set on ${tier} nodes should be ${expected}, got ${got}`);
+  }
+
+  // Individual T8 pieces: chest 3.5%/stack, head and feet 1.75%/stack, x10.
+  const singlePiece = { CHEST: 0.35, HEAD: 0.175, FEET: 0.175 };
+  for (const [piece, expected] of Object.entries(singlePiece)) {
+    const got = yieldBonusByTier(buffsWith({ gatheringGear: gearOn('T8', [piece]) })).T8;
+    check(near(got, expected), `T8 ${piece} alone should be ${expected}, got ${got}`);
+  }
+
+  // Avalonian tool: flat, by tool tier, on nodes up to that tier only.
+  const avalon = { T4: 0.10, T5: 0.125, T6: 0.15, T7: 0.175, T8: 0.20 };
+  for (const [tier, expected] of Object.entries(avalon)) {
+    const got = yieldBonusByTier(buffsWith({ toolTier: tier, avalonianTool: true }))[tier];
+    check(near(got, expected), `${tier} Avalonian tool on ${tier} nodes should be ${expected}, got ${got}`);
+  }
+  const t6Tool = yieldBonusByTier(buffsWith({ toolTier: 'T6', avalonianTool: true }));
+  check(near(t6Tool.T6, 0.15) && t6Tool.T7 === 0 && t6Tool.T8 === 0, 'a T6 Avalonian tool should give nothing on T7/T8 nodes');
+
+  // Gear tier gates by node tier too, and the two sources add (not multiply).
+  const mixed = yieldBonusByTier(buffsWith({ toolTier: 'T8', avalonianTool: true, gatheringGear: gearOn('T6', ['HEAD', 'CHEST', 'FEET']) }));
+  const expectedMixed = { T4: 0.50, T5: 0.50, T6: 0.50, T7: 0.20, T8: 0.20 };
+  for (const [tier, expected] of Object.entries(expectedMixed)) {
+    check(near(mixed[tier], expected), `T8 Avalonian tool + full T6 gear on ${tier} nodes should be ${expected}, got ${mixed[tier]}`);
+  }
+  const allOn = yieldBonusByTier(buffsWith({ toolTier: 'T8', avalonianTool: true, gatheringGear: gearOn('T8', ['HEAD', 'CHEST', 'FEET']) }));
+  check(near(allOn.T8, 0.90), `T8 Avalonian tool + full T8 gear should be 0.90 on T8 nodes, got ${allOn.T8}`);
 }
 
 console.log(failures === 0 ? `\nAll ${variants.length} zone/variant combinations passed.` : `\n${failures} check(s) failed.`);

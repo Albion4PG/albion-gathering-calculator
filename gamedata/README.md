@@ -1,7 +1,6 @@
 # Raw game data
 
-These are unmodified client data files (provided directly, not redistributed
-from any third-party source) used to generate [`src/gamedata.generated.mjs`](../src/gamedata.generated.mjs)
+These are unmodified client data files used to generate [`src/gamedata.generated.mjs`](../src/gamedata.generated.mjs)
 via [`scripts/build_gamedata.py`](../scripts/build_gamedata.py):
 
 | File | Used for |
@@ -12,6 +11,15 @@ via [`scripts/build_gamedata.py`](../scripts/build_gamedata.py):
 | `gamedata.xml` | `gatheringfamefactor` per zone danger type |
 | `resourcedistpresets.xml` | node weights, Royal + Outlands zones |
 | `world.xml` | node weights, Roads (Avalonian tunnel) zones — see below |
+| `spells.xml` | gathering-yield bonuses of Avalonian tools and gathering gear — see below |
+
+All files were provided directly except `spells.xml`, which was downloaded
+from [ao-data/ao-bin-dumps](https://github.com/ao-data/ao-bin-dumps)
+(`master`, 2026-10-07), a public dump of the same client files. It may not be
+from the exact same patch as the others, so the extractor cross-checks it
+against `items.xml` (every gear/tool item must resolve to a passive that
+exists in `spells.xml`, with the expected tier range) and fails loudly on any
+mismatch rather than guessing.
 
 Regenerate after updating any of these files to a new game patch:
 
@@ -88,3 +96,31 @@ building this extraction:
   both applying their T5-specific enchant rate to T4 as well as T5 — T4
   should use the same shared explicit rate as Yellow (85.12/12/2.4/0.48);
   only T5 gets the color-specific rate.
+
+## Gathering yield, from `spells.xml` (via `items.xml`)
+
+Items carry no numbers: each Avalonian tool / gathering gear piece lists a
+passive spell in its `<craftingspelllist>` (`<craftspell uniquename=..>`;
+`<removespell>` only clears the previous tier's copy), and the value lives on
+that spell. `extract_gathering_yield` follows that chain per tier and resource
+type:
+
+- **Avalonian tools** (`PASSIVE_AVALON_YIELD_<RES>_T#`): flat
+  `<resourcegatheringbuff bufftype="gatheringyield">` entries for node tiers
+  2..T#, all the same value.
+- **Gathering gear** (`PASSIVE_{HEAD,SHOES,}_YIELD_<RES>_T#`, where the bare
+  form is the chest piece): a `<pulsingspellpassive interval="30">` that
+  fires an `..._EFFECT_T#` active spell; each pulse adds one stack of
+  `<resourcegatheringbuffovertime value=..>` up to that spell's `maxcharges`
+  (10), over node tiers 2..T#.
+
+The script asserts the tier ranges above, that Avalonian values are flat,
+and that all 5 resource types are identical (so one table serves the model),
+and reads max stacks / pulse interval from the data instead of hard-coding
+them. `bufftype` only ever takes `gatheringyield` here — there are no
+gathering-speed bonuses on any tool or gear passive. Yield affects resources
+per node, not fame, so the calculator shows it as a readout only.
+
+Not used: `PASSIVE_BAG_YIELD_ALL_T#` (backpacks). Besides its carry-weight
+`maxload` buff it also pulses a small stacking yield effect
+(`PASSIVE_YIELD_ALL_T#`), which is not modeled.

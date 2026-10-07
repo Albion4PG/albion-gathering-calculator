@@ -10,7 +10,9 @@ enchant probability tables (rareresourcedistribution.xml),
 gatheringfamefactor (gamedata.xml), Royal + Outlands node weights
 (resourcedistpresets.xml), and Roads/Avalonian-tunnel node weights per
 tunnel type (world.xml, averaged per-cluster across ~400 tunnel
-instances -- see extract_roads_node_weights).
+instances -- see extract_roads_node_weights), and the gathering-yield
+passives on Avalonian tools / gathering gear (items.xml -> spells.xml --
+see extract_gathering_yield).
 """
 import json
 import re
@@ -264,6 +266,100 @@ def extract_roads_node_weights(world_xml):
     return weights
 
 
+# --- 7. Gathering yield bonuses (items.xml -> spells.xml) -------------------
+#
+# Items carry no numbers themselves: each gathering tool/gear piece lists a
+# passive spell in its <craftingspelllist>, and the value lives on that spell.
+#   - Avalonian tools: a flat <resourcegatheringbuff> on the passive itself,
+#     applying from the moment the tool is equipped.
+#   - Gathering gear (head/armor/shoes): the passive pulses an "_EFFECT"
+#     active spell every `interval` seconds; each pulse adds one stack of
+#     <resourcegatheringbuffovertime value=..> up to the effect's maxcharges.
+# Only bufftype="gatheringyield" exists for these -- no speed bonuses.
+
+GEAR_SLOT_ITEM_NAME = {"HEAD": "HEAD", "CHEST": "ARMOR", "FEET": "SHOES"}
+
+
+def spell_block(spells_xml, tag, name):
+    m = re.search(rf'<{tag} uniquename="{re.escape(name)}"[^>]*?(?:/>|>(.*?)</{tag}>)', spells_xml, re.S)
+    assert m, f"{tag} not found in spells.xml: {name}"
+    return m.group(0), (m.group(1) or "")
+
+
+def item_passive(items_xml, item_name):
+    # The passive an item grants (<craftspell>, not <removespell>, which only
+    # clears the previous tier's version of the same passive).
+    m = re.search(rf'<equipmentitem uniquename="{re.escape(item_name)}"[^>]*>(.*?)</equipmentitem>', items_xml, re.S)
+    assert m, f"item not found in items.xml: {item_name}"
+    spells = re.findall(r'<craftspell uniquename="(PASSIVE_[A-Z0-9_]*YIELD[A-Z0-9_]*)"', m.group(1))
+    assert len(spells) == 1, f"{item_name}: expected exactly one yield passive, got {spells}"
+    return spells[0]
+
+
+def extract_gathering_yield(items_xml, spells_xml):
+    # Per resource type, then cross-checked identical across all 5 (the model
+    # has no per-resource-type distinction anywhere else, so one table is used).
+    per_resource = {}
+    for resource in RESOURCE_TYPES:
+        avalon = {}
+        gear = {slot: {} for slot in GEAR_SLOT_ITEM_NAME}
+        stacks, intervals = set(), set()
+
+        for tier in TIERS:
+            # Avalonian tool: confirm some item actually references the passive,
+            # then read its flat per-node-tier values.
+            avalon_name = f"PASSIVE_AVALON_YIELD_{resource}_T{tier}"
+            assert f'<craftspell uniquename="{avalon_name}"' in items_xml, f"no item grants {avalon_name}"
+            _, body = spell_block(spells_xml, "passivespell", avalon_name)
+            by_tier = {
+                int(t): float(v)
+                for t, v in re.findall(
+                    rf'<resourcegatheringbuff bufftype="gatheringyield" resourcetype="{resource}" tier="(\d)" value="([0-9.]+)"', body
+                )
+            }
+            assert set(by_tier) == set(range(2, tier + 1)), f"{avalon_name} tier range is {sorted(by_tier)}, expected 2..{tier}"
+            assert len(set(by_tier.values())) == 1, f"{avalon_name} is not flat across tiers: {by_tier}"
+            avalon[tier] = next(iter(by_tier.values()))
+
+            for slot, item_slot in GEAR_SLOT_ITEM_NAME.items():
+                passive_name = item_passive(items_xml, f"T{tier}_{item_slot}_GATHERER_{resource}")
+                _, passive_body = spell_block(spells_xml, "passivespell", passive_name)
+                # \s before interval: otherwise greedy [^>]* backtracks onto initialinterval="0".
+                pulse = re.search(r'<pulsingspellpassive spell="([A-Z0-9_]+)"[^>]*?\sinterval="(\d+)"', passive_body)
+                assert pulse, f"{passive_name}: no pulsingspellpassive"
+                effect_block, effect_body = spell_block(spells_xml, "activespell", pulse.group(1))
+                maxcharges = re.search(r'maxcharges="(\d+)"', effect_block)
+                buff = re.search(
+                    rf'<resourcegatheringbuffovertime bufftype="gatheringyield" resourcetype="{resource}" mintier="(\d)" maxtier="(\d)"[^>]*value="([0-9.]+)"',
+                    effect_body,
+                )
+                assert maxcharges and buff, f"{pulse.group(1)}: missing maxcharges or gatheringyield buff"
+                assert (int(buff.group(1)), int(buff.group(2))) == (2, tier), (
+                    f"{pulse.group(1)} tier range is {buff.group(1)}..{buff.group(2)}, expected 2..{tier}"
+                )
+                gear[slot][tier] = float(buff.group(3))
+                stacks.add(int(maxcharges.group(1)))
+                intervals.add(int(pulse.group(2)))
+
+        per_resource[resource] = {"avalon": avalon, "gear": gear, "stacks": stacks, "intervals": intervals}
+
+    reference = per_resource["ROCK"]
+    for resource, values in per_resource.items():
+        assert values == reference, f"{resource} gathering-yield data diverges from ROCK"
+    assert len(reference["stacks"]) == 1 and len(reference["intervals"]) == 1, (
+        f"max stacks / pulse interval not uniform: {reference['stacks']} / {reference['intervals']}"
+    )
+
+    return {
+        "AVALON_TOOL": {f"T{t}": reference["avalon"][t] for t in TIERS},
+        "GEAR_PER_STACK": {
+            slot: {f"T{t}": reference["gear"][slot][t] for t in TIERS} for slot in GEAR_SLOT_ITEM_NAME
+        },
+        "GEAR_MAX_STACKS": next(iter(reference["stacks"])),
+        "GEAR_PULSE_SECONDS": next(iter(reference["intervals"])),
+    }
+
+
 # --- main --------------------------------------------------------------
 
 def main():
@@ -273,6 +369,7 @@ def main():
     gamedata_xml = read("gamedata.xml")
     presets_xml = read("resourcedistpresets.xml")
     world_xml = read("world.xml")
+    spells_xml = read("spells.xml")
 
     famevalue_base = extract_famevalue(items_xml)
     charges, static_tick, elemental_tick, _divergences = extract_charges_and_ticks(harvestables_xml)
@@ -282,6 +379,7 @@ def main():
     royal_weights = extract_royal_node_weights(presets_xml)
     outlands_weights = extract_outlands_node_weights(presets_xml)
     roads_weights = extract_roads_node_weights(world_xml)
+    gathering_yield = extract_gathering_yield(items_xml, spells_xml)
 
     data = {
         "FAMEVALUE_BASE": famevalue_base,
@@ -294,6 +392,7 @@ def main():
         "ROYAL_NODE_WEIGHTS_BY_DECLARED_TIER": royal_weights,
         "OUTLANDS_NODE_WEIGHTS_BY_DECLARED_TIER": outlands_weights,
         "ROADS_NODE_WEIGHTS_BY_TYPE": roads_weights,
+        "GATHERING_YIELD": gathering_yield,
     }
 
     header = (

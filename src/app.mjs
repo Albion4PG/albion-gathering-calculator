@@ -10,7 +10,8 @@
 import {
   ZONES, CATEGORY_DEFAULTS, ROAD_TYPES,
   PORK_PIE_TIERS, PORK_PIE_MULTIPLIER, LEARNING_POINTS_MAX_NODES, TOOL_TIERS,
-  defaultBuffs, combinedBuffMultiplier,
+  GATHERING_YIELD, GEAR_TIERS, GEAR_PIECES, NODE_TIERS,
+  defaultBuffs, combinedBuffMultiplier, yieldBonusByTier,
 } from './data.mjs';
 import { computeZoneSweep } from './model.mjs';
 import { renderLineChart, SERIES_COLORS, MARKER_SHAPES, markerIconSvg } from './chart.mjs';
@@ -314,6 +315,7 @@ els.zonePanels.addEventListener('click', (e) => {
 // undefined) or missing analytics script never breaks the actual feature.
 function trackAddToPlot(zoneId, s) {
   if (typeof gtag !== 'function') return;
+  const equippedGear = GEAR_PIECES.filter((piece) => buffs.gatheringGear.equipped[piece]);
   gtag('event', 'add_to_plot', {
     zone_id: zoneId,
     zone_name: ZONES[zoneId].name,
@@ -329,6 +331,9 @@ function trackAddToPlot(zoneId, s) {
     tool_tier: buffs.toolTier,
     no_static_tier_above: buffs.noStaticTierAbove,
     no_mob_tier_above: buffs.noMobTierAbove,
+    avalonian_tool: buffs.avalonianTool,
+    gear_tier: equippedGear.length ? buffs.gatheringGear.tier : 'off',
+    gear_pieces: equippedGear.length ? equippedGear.join('+') : 'none',
   });
 }
 
@@ -368,6 +373,12 @@ function renderBuffsPanel() {
     </div>
     <div class="buff-item">
       <label>
+        <input type="checkbox" data-role="avalonian-toggle" ${buffs.avalonianTool ? 'checked' : ''} autocomplete="off" />
+        Avalonian tool ${infoIcon('Makes your tool an Avalonian one: a flat resource-yield bonus (scaling with the tool tier above) on nodes up to that tier. Yield means more resources per node, not more fame, so the chart doesn’t change.')}
+      </label>
+    </div>
+    <div class="buff-item">
+      <label>
         <input type="checkbox" data-role="tier-above-toggle" data-which="noStaticTierAbove" ${buffs.noStaticTierAbove ? 'checked' : ''} autocomplete="off" />
         Skip static nodes one tier above ${infoIcon('If your tool can reach the tier above (unenchanted only), this refuses the static version of it -- you’ll only take it if it’s a resource mob instead.')}
       </label>
@@ -378,7 +389,40 @@ function renderBuffsPanel() {
         Skip mobs one tier above ${infoIcon('If your tool can reach the tier above (unenchanted only), this refuses the resource-mob version of it -- you’ll only take it if it’s a static node instead. Checking both boxes drops that tier entirely.')}
       </label>
     </div>
+    <div class="buff-item tool-tier-item">
+      <label class="label-text">Gathering gear ${infoIcon(`Tier of your gathering head/chest/feet. Each equipped piece adds a resource-yield bonus on nodes up to its tier, stacking once every ${GATHERING_YIELD.GEAR_PULSE_SECONDS}s up to ${GATHERING_YIELD.GEAR_MAX_STACKS} stacks. Modeled fully stacked (${GATHERING_YIELD.GEAR_MAX_STACKS * GATHERING_YIELD.GEAR_PULSE_SECONDS / 60} min of gathering). Yield means more resources per node, not more fame.`)}</label>
+      <select data-role="gear-tier" autocomplete="off">
+        ${GEAR_TIERS.map((t) => `<option value="${t}" ${t === buffs.gatheringGear.tier ? 'selected' : ''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div class="gear-pieces">
+      ${GEAR_PIECES.map((piece) => `
+        <label>
+          <input type="checkbox" data-role="gear-piece" data-piece="${piece}" ${buffs.gatheringGear.equipped[piece] ? 'checked' : ''} autocomplete="off" />
+          ${GEAR_PIECE_LABEL[piece]}
+        </label>`).join('')}
+    </div>
+    ${renderYieldReadout()}
   `;
+}
+
+const GEAR_PIECE_LABEL = { HEAD: 'Head', CHEST: 'Chest', FEET: 'Feet' };
+
+// 0.175 -> "17.5%", 0.9 -> "90%": trims float noise (0.0175 * 10 = 0.17500000000000002).
+function formatPercent(fraction) {
+  return `${Number((fraction * 100).toFixed(2))}%`;
+}
+
+function renderYieldReadout() {
+  const bonus = yieldBonusByTier(buffs);
+  return `
+    <div class="yield-readout">
+      <div class="yield-readout-title">Resource yield bonus ${infoIcon('Extra resources per node from your Avalonian tool and gear, by node tier (the two add together). Not fame — the chart is unaffected.')}</div>
+      <div class="yield-grid">
+        ${NODE_TIERS.map((t) => `<span class="tier">${t}</span>`).join('')}
+        ${NODE_TIERS.map((t) => `<span class="val ${bonus[t] ? '' : 'zero'}">${bonus[t] ? formatPercent(bonus[t]) : '—'}</span>`).join('')}
+      </div>
+    </div>`;
 }
 
 els.buffsPanel.addEventListener('change', (e) => {
@@ -389,6 +433,21 @@ els.buffsPanel.addEventListener('change', (e) => {
   }
   if (e.target.dataset.role === 'tier-above-toggle') {
     buffs[e.target.dataset.which] = e.target.checked;
+    renderAll();
+    return;
+  }
+  if (e.target.dataset.role === 'avalonian-toggle') {
+    buffs.avalonianTool = e.target.checked;
+    renderAll();
+    return;
+  }
+  if (e.target.dataset.role === 'gear-tier') {
+    buffs.gatheringGear.tier = e.target.value;
+    renderAll();
+    return;
+  }
+  if (e.target.dataset.role === 'gear-piece') {
+    buffs.gatheringGear.equipped[e.target.dataset.piece] = e.target.checked;
     renderAll();
     return;
   }
