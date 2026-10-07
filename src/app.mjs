@@ -9,8 +9,9 @@
 
 import {
   ZONES, CATEGORY_DEFAULTS, ROAD_TYPES,
-  PORK_PIE_TIERS, PORK_PIE_MULTIPLIER, LEARNING_POINTS_MAX_NODES, TOOL_TIERS,
-  defaultBuffs, combinedBuffMultiplier,
+  PORK_PIE_TIERS, PORK_PIE_YIELD, LEARNING_POINTS_MAX_NODES, TOOL_TIERS,
+  GATHERING_YIELD, GEAR_TIERS, GEAR_PIECES, NODE_TIERS,
+  defaultBuffs, combinedBuffMultiplier, yieldBonusByTier,
 } from './data.mjs';
 import { computeZoneSweep } from './model.mjs';
 import { renderLineChart, SERIES_COLORS, MARKER_SHAPES, markerIconSvg } from './chart.mjs';
@@ -76,13 +77,18 @@ const PARAM_HELP = {
   kill_time: 'Flat seconds to kill a resource mob before you can start harvesting it -- added once per mob, not per charge.',
 };
 
-// Universal buffs (Pork Pie / Premium / Learning Points): one global on/off
-// state applied to every entry's fame_amount, current and future -- not
-// snapshotted per zone/entry, so toggling one instantly re-scales the whole
-// chart. All default off per spec Section 5 (previously out of scope).
+// Universal buffs (Pork Pie / Premium / Learning Points, plus the Avalonian
+// tool and gathering gear): one global state applied to every entry's
+// fame_amount, current and future -- not snapshotted per zone/entry, so
+// toggling one instantly re-scales the whole chart. Pork Pie, tool and gear
+// are summed gathering yield (per node tier); Premium and Learning Points
+// are tier-independent multipliers. All default off.
 let buffs = defaultBuffs();
 function currentBuffMultiplier() {
   return combinedBuffMultiplier(buffs);
+}
+function currentYieldBonus() {
+  return yieldBonusByTier(buffs);
 }
 function tierAboveExclusions() {
   return { noStaticTierAbove: buffs.noStaticTierAbove, noMobTierAbove: buffs.noMobTierAbove };
@@ -221,7 +227,7 @@ function renderZonePanels() {
   const def = ZONES[id];
   const s = zoneState[id];
   const a = s.assumptions;
-  const sweep = computeZoneSweep(resolvedZoneDef(id, s), s.quality, a, currentBuffMultiplier(), buffs.toolTier, tierAboveExclusions());
+  const sweep = computeZoneSweep(resolvedZoneDef(id, s), s.quality, a, currentBuffMultiplier(), buffs.toolTier, tierAboveExclusions(), currentYieldBonus());
 
   els.zonePanels.innerHTML = `
     <div class="zone-card" data-zone="${id}">
@@ -275,7 +281,7 @@ els.zonePanels.addEventListener('input', (e) => {
   const readout = card.querySelector(`[data-readout="${param}"]`);
   readout.textContent = param === 'mob_proportion' || param === 'charge_fraction_enchanted' ? `${raw}%` : `${raw}s`;
   const s = zoneState[zoneId];
-  const sweep = computeZoneSweep(resolvedZoneDef(zoneId, s), s.quality, s.assumptions, currentBuffMultiplier(), buffs.toolTier, tierAboveExclusions());
+  const sweep = computeZoneSweep(resolvedZoneDef(zoneId, s), s.quality, s.assumptions, currentBuffMultiplier(), buffs.toolTier, tierAboveExclusions(), currentYieldBonus());
   card.querySelector('table.mini tbody').innerHTML = sweep
     .map((p) => `<tr><td>${p.tau}</td><td>${p.label}</td><td>${Math.round(p.famePerHour).toLocaleString()}</td></tr>`)
     .join('');
@@ -314,6 +320,7 @@ els.zonePanels.addEventListener('click', (e) => {
 // undefined) or missing analytics script never breaks the actual feature.
 function trackAddToPlot(zoneId, s) {
   if (typeof gtag !== 'function') return;
+  const equippedGear = GEAR_PIECES.filter((piece) => buffs.gatheringGear.equipped[piece]);
   gtag('event', 'add_to_plot', {
     zone_id: zoneId,
     zone_name: ZONES[zoneId].name,
@@ -329,6 +336,9 @@ function trackAddToPlot(zoneId, s) {
     tool_tier: buffs.toolTier,
     no_static_tier_above: buffs.noStaticTierAbove,
     no_mob_tier_above: buffs.noMobTierAbove,
+    avalonian_tool: buffs.avalonianTool,
+    gear_tier: equippedGear.length ? buffs.gatheringGear.tier : 'off',
+    gear_pieces: equippedGear.length ? equippedGear.join('+') : 'none',
   });
 }
 
@@ -339,10 +349,10 @@ function renderBuffsPanel() {
     <div class="buff-item">
       <label>
         <input type="checkbox" data-role="buff-toggle" data-buff="porkPie" ${buffs.porkPie.enabled ? 'checked' : ''} autocomplete="off" />
-        Pork Pie
+        Pork Pie ${infoIcon('Counts as gathering yield on every node tier: it adds to your Avalonian tool and gear bonuses (see “Yield bonus” below) rather than multiplying fame separately.')}
       </label>
       <select data-role="buff-option" data-buff="porkPie" ${buffs.porkPie.enabled ? '' : 'disabled'} autocomplete="off">
-        ${PORK_PIE_TIERS.map((t) => `<option value="${t}" ${t === buffs.porkPie.tier ? 'selected' : ''}>${t} (${PORK_PIE_MULTIPLIER[t]}x)</option>`).join('')}
+        ${PORK_PIE_TIERS.map((t) => `<option value="${t}" ${t === buffs.porkPie.tier ? 'selected' : ''}>${t} (+${formatPercent(PORK_PIE_YIELD[t])})</option>`).join('')}
       </select>
     </div>
     <div class="buff-item">
@@ -368,6 +378,12 @@ function renderBuffsPanel() {
     </div>
     <div class="buff-item">
       <label>
+        <input type="checkbox" data-role="avalonian-toggle" ${buffs.avalonianTool ? 'checked' : ''} autocomplete="off" />
+        Avalonian tool ${infoIcon('Makes your tool an Avalonian one: a flat resource-yield bonus (scaling with the tool tier above) on nodes up to that tier. Yield means more resources per node, and each extra resource earns its own fame.')}
+      </label>
+    </div>
+    <div class="buff-item">
+      <label>
         <input type="checkbox" data-role="tier-above-toggle" data-which="noStaticTierAbove" ${buffs.noStaticTierAbove ? 'checked' : ''} autocomplete="off" />
         Skip static nodes one tier above ${infoIcon('If your tool can reach the tier above (unenchanted only), this refuses the static version of it -- you’ll only take it if it’s a resource mob instead.')}
       </label>
@@ -378,7 +394,40 @@ function renderBuffsPanel() {
         Skip mobs one tier above ${infoIcon('If your tool can reach the tier above (unenchanted only), this refuses the resource-mob version of it -- you’ll only take it if it’s a static node instead. Checking both boxes drops that tier entirely.')}
       </label>
     </div>
+    <div class="buff-item tool-tier-item">
+      <label class="label-text">Gathering gear ${infoIcon(`Tier of your gathering head/chest/feet. Each equipped piece adds a resource-yield bonus on nodes up to its tier, stacking once every ${GATHERING_YIELD.GEAR_PULSE_SECONDS}s up to ${GATHERING_YIELD.GEAR_MAX_STACKS} stacks. Modeled fully stacked (${GATHERING_YIELD.GEAR_MAX_STACKS * GATHERING_YIELD.GEAR_PULSE_SECONDS / 60} min of gathering). Yield means more resources per node, and each extra resource earns its own fame.`)}</label>
+      <select data-role="gear-tier" autocomplete="off">
+        ${GEAR_TIERS.map((t) => `<option value="${t}" ${t === buffs.gatheringGear.tier ? 'selected' : ''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div class="gear-pieces">
+      ${GEAR_PIECES.map((piece) => `
+        <label>
+          <input type="checkbox" data-role="gear-piece" data-piece="${piece}" ${buffs.gatheringGear.equipped[piece] ? 'checked' : ''} autocomplete="off" />
+          ${GEAR_PIECE_LABEL[piece]}
+        </label>`).join('')}
+    </div>
+    ${renderYieldReadout()}
   `;
+}
+
+const GEAR_PIECE_LABEL = { HEAD: 'Head', CHEST: 'Chest', FEET: 'Feet' };
+
+// 0.175 -> "17.5%", 0.9 -> "90%": trims float noise (0.0175 * 10 = 0.17500000000000002).
+function formatPercent(fraction) {
+  return `${Number((fraction * 100).toFixed(2))}%`;
+}
+
+function renderYieldReadout() {
+  const bonus = yieldBonusByTier(buffs);
+  return `
+    <div class="yield-readout">
+      <div class="yield-readout-title">Yield bonus ${infoIcon('Total gathering yield by node tier: Pork Pie + Avalonian tool + gear, added together. Each extra resource earns its own fame, so fame scales by 1 + this; Premium and Learning Points multiply on top.')}</div>
+      <div class="yield-grid">
+        ${NODE_TIERS.map((t) => `<span class="tier">${t}</span>`).join('')}
+        ${NODE_TIERS.map((t) => `<span class="val ${bonus[t] ? '' : 'zero'}">${bonus[t] ? formatPercent(bonus[t]) : '—'}</span>`).join('')}
+      </div>
+    </div>`;
 }
 
 els.buffsPanel.addEventListener('change', (e) => {
@@ -389,6 +438,21 @@ els.buffsPanel.addEventListener('change', (e) => {
   }
   if (e.target.dataset.role === 'tier-above-toggle') {
     buffs[e.target.dataset.which] = e.target.checked;
+    renderAll();
+    return;
+  }
+  if (e.target.dataset.role === 'avalonian-toggle') {
+    buffs.avalonianTool = e.target.checked;
+    renderAll();
+    return;
+  }
+  if (e.target.dataset.role === 'gear-tier') {
+    buffs.gatheringGear.tier = e.target.value;
+    renderAll();
+    return;
+  }
+  if (e.target.dataset.role === 'gear-piece') {
+    buffs.gatheringGear.equipped[e.target.dataset.piece] = e.target.checked;
     renderAll();
     return;
   }
@@ -415,7 +479,7 @@ function renderChart() {
       color: colorOf(entry.zoneId),
       group: def.group,
       shape: entry.shape,
-      sweep: computeZoneSweep(resolvedZoneDef(entry.zoneId, entry), entry.quality, entry.assumptions, currentBuffMultiplier(), buffs.toolTier, tierAboveExclusions()),
+      sweep: computeZoneSweep(resolvedZoneDef(entry.zoneId, entry), entry.quality, entry.assumptions, currentBuffMultiplier(), buffs.toolTier, tierAboveExclusions(), currentYieldBonus()),
     };
   });
 
@@ -429,7 +493,7 @@ function renderChart() {
       group: def.group,
       shape: previewShape,
       preview: true,
-      sweep: computeZoneSweep(resolvedZoneDef(selectedZoneId, s), s.quality, s.assumptions, currentBuffMultiplier(), buffs.toolTier, tierAboveExclusions()),
+      sweep: computeZoneSweep(resolvedZoneDef(selectedZoneId, s), s.quality, s.assumptions, currentBuffMultiplier(), buffs.toolTier, tierAboveExclusions(), currentYieldBonus()),
     });
   }
 

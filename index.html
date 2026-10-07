@@ -236,6 +236,36 @@
   .buff-item select:disabled { opacity: 0.45; }
   .tool-tier-item { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
   .tool-tier-item .label-text { display: flex; align-items: center; gap: 5px; cursor: default; }
+  .gear-pieces {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 6px;
+    padding: 4px 0 7px;
+    font-size: 0.82rem;
+  }
+  .gear-pieces label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .gear-pieces input { margin: 0; }
+  .yield-readout { margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+  .yield-readout-title {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 6px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .yield-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 3px 2px;
+    text-align: center;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .yield-grid .tier { color: var(--text-muted-2); }
+  .yield-grid .val { font-weight: 600; color: var(--text); }
+  .yield-grid .val.zero { font-weight: 400; color: var(--text-faint); }
 
   /* --- zone selector --- */
   .zone-group + .zone-group { margin-top: 18px; }

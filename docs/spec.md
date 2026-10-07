@@ -24,7 +24,7 @@ your encounter mix. Everything below operates on that reachable set.
 For each (tier t, enchant e) state with famevalue(t,e) >= τ:
     include it in the "qualifying" set
 
-fame_amount(t, e) = famevalue(t, e) × charges(t) × (charge_fraction_enchanted if e > 0 else 1.0) × gatheringfamefactor(zone) × buff_multiplier
+fame_amount(t, e) = famevalue(t, e) × charges(t) × (charge_fraction_enchanted if e > 0 else 1.0) × gatheringfamefactor(zone) × buff_multiplier × (1 + yield_bonus(t))
 static_time(t, e)   = charges(t) × static_tick(t)    × (charge_fraction_enchanted if e > 0 else 1.0) × tool_time_factor(t, tool_tier)
 mob_time(t, e)      = kill_time + charges(t) × elemental_tick(t) × (charge_fraction_enchanted if e > 0 else 1.0) × tool_time_factor(t, tool_tier)
 blended_time(t, e)  = mob_proportion × mob_time(t, e) + (1 - mob_proportion) × static_time(t, e)
@@ -34,6 +34,13 @@ time_per_encounter(τ) = search_time + Σ over qualifying (t,e) [ P(tier=t) × P
 
 fame_per_hour(τ) = fame_per_encounter(τ) / time_per_encounter(τ) × 3600
 ```
+
+`buff_multiplier` = Premium × Learning Points (tier-independent, see
+Section 3). `yield_bonus(t)` = Pork Pie + Avalonian tool + gathering gear,
+**summed** and evaluated per node tier `t` (the tool and gear only cover
+tiers up to their own; see "Gathering yield" in Section 3). Yield scales fame
+only — each extra resource earns its own fame — never time, and the threshold
+`τ` still filters on the per-unit `famevalue`.
 
 `P(tier=t)` = that tier's node-count weight ÷ total node-count weight for
 the zone (including any out-of-scope tiers below T4 — see Section 2).
@@ -123,12 +130,15 @@ normalizes over its T4/T5 weights alone.
 Unlike the per-zone parameters above, these apply globally to every zone/
 entry at once (current and future — not snapshotted per entry), matching
 their real account-wide nature. Each is a flat multiplier on `fame_amount`
-only; none affect gathering speed/time. Combine multiplicatively with each
-other and with `gatheringfamefactor`.
+only; none affect gathering speed/time. They multiply with each other, with
+`(1 + yield_bonus)` and with `gatheringfamefactor`. (Pork Pie is not in this
+table: the game files show it's a gathering-*yield* buff, so it's summed with
+the other yield sources below. The multiplicative stacking of Premium and
+Learning Points with everything else is a modeling choice, not something
+readable from the game files.)
 
 | Buff | Options | Multiplier |
 |---|---|---|
-| Pork Pie | T7 (default) / T7.1 / T7.2 / T7.3 | 1.15 / 1.175 / 1.2 / 1.225 |
 | Premium | on/off | 1.5 |
 | Learning Points | 1–5 destiny-board nodes (default 5) | `1 + (4/5) × nodes` — linear from 1x (0 nodes) to 5x (5 nodes) |
 
@@ -159,6 +169,44 @@ independently: "Skip static nodes one tier above" (default **on**) and
 couldn't reach it at all. `fame_amount` is identical regardless of which
 route is taken -- only `blended_time` (and therefore fame/hour) changes.
 
+### Gathering yield: Pork Pie + Avalonian tool + gathering gear
+
+Resource **yield** means extra resources per harvest, and (confirmed with the
+user) every extra resource earns its own fame — so summed yield scales
+`fame_amount` by `(1 + yield_bonus(t))` in Section 1, without changing time.
+A per-node-tier "Yield bonus" readout in the Buffs panel shows the sum.
+All three sources are the same game stat (`gatheringyield`) and are
+**added**, not multiplied. Sourced from `spells.xml` by following each item's
+passive or consume spell (`items.xml` → spell → effect; see
+`extract_gathering_yield` / `extract_pork_pie_yield` in
+`scripts/build_gamedata.py`); the tool and gear tables are cross-checked
+identical across all 5 resource types. There are no gathering-*speed*
+bonuses on any tool or gear passive.
+
+- **Pork Pie** (checkbox + enchant dropdown): T7 +15%, T7.1 +17.5%, T7.2
+  +20%, T7.3 +22.5%. Unlike the tool and gear, the data gives it no node-tier
+  range, so it applies to every node tier.
+- **Avalonian tool** (checkbox next to Tool tier): a flat bonus from the
+  moment it's equipped, by the selected tool tier — T4 +10%, T5 +12.5%,
+  T6 +15%, T7 +17.5%, T8 +20% — applying to node tiers 2 up to the tool's
+  tier.
+- **Gathering gear** (tier dropdown + Head / Chest / Feet checkboxes): each
+  equipped piece gains one stack every 30s up to 10 stacks, applying to node
+  tiers 2 up to the piece's tier. Modeled fully stacked (10 stacks). Per
+  stack — Chest: T4 0.5%, T5 1%, T6 1.5%, T7 2.5%, T8 3.5%; Head and Feet
+  (each): half of that. A full set at 10 stacks is therefore +10/20/30/50/70%
+  for T4–T8.
+- The sources **add**: a T8 Avalonian tool plus a full T8 set is +90% on T8
+  nodes, and Pork Pie T7 on top makes it +105%. Because the tool and gear are
+  capped at their own tier, lower-tier gear under a higher-tier tool tapers by
+  node tier (T8 tool + full T6 set = 50% on T4–T6 nodes, 20% on T7–T8; add
+  Pork Pie T7 for 65% / 35%).
+- Worked example: Pork Pie T7 (+0.15) + T8 Avalonian tool (+0.20) + Premium
+  (1.5×) = 1.5 × (1 + 0.15 + 0.20) = 2.025× fame/hour on every tier.
+- Not verified from the data: whether gear stacks reset or decay (e.g. on
+  combat or unequipping), and whether the game really sums rather than
+  multiplies the yield sources.
+
 ## 4. UI Structure
 
 - Theme: follows the OS/browser color-scheme preference by default, with
@@ -185,13 +233,17 @@ route is taken -- only `blended_time` (and therefore fame/hour) changes.
 - Buffs panel: checkboxes (+ dropdowns for Pork Pie/Learning Points, see
   Section 3) to the right of the chart, applying globally to every entry
   at once rather than being part of any single zone's config panel. Also
-  carries the universal Tool Tier dropdown (T4–T8, default T8).
+  carries the universal Tool Tier dropdown (T4–T8, default T8) with an
+  Avalonian-tool checkbox beneath it, plus the Gathering gear tier dropdown,
+  Head/Chest/Feet checkboxes and the yield readout (all default off).
 
 ## 5. Explicitly Out of Scope (v1)
 
 - Treasures
 - Off-road-vs-total-area correction for Roads
 - T3 and below
+- Resources/hour and silver/hour — yield feeds fame (see "Gathering yield" in
+  Section 3), but the chart stays fame/hour only
 - Mists zones (constants present in `src/data.mjs` for completeness,
   not wired into any zone definition — no node-weight data available)
 

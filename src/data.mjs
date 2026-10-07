@@ -51,6 +51,47 @@ export function toolTimeFactor(baseTier, toolTier) {
   return TOOL_TIME_FACTOR[String(diff)];
 }
 
+// --- Gathering yield (Pork Pie + Avalonian tool + gathering gear) ----------
+// From spells.xml via each item's passive/consume spell (see
+// build_gamedata.py's extract_gathering_yield / extract_pork_pie_yield).
+// Yield is extra resources per harvest, and (confirmed with the user) every
+// extra resource earns its own fame -- so it scales fame_amount by
+// (1 + yield) rather than being a separate fame multiplier. All three
+// sources are the same game stat (bufftype "gatheringyield"), so they're
+// summed with each other, not multiplied; Premium and Learning Points then
+// multiply on top (see combinedBuffMultiplier).
+//   - Pork Pie: flat bonus on every node tier (no tier range in the data).
+//   - Avalonian tool: flat bonus on node tiers 2..tool tier, from equip.
+//   - Gear piece: per-stack bonus on node tiers 2..gear tier, stacking once
+//     per GEAR_PULSE_SECONDS up to GEAR_MAX_STACKS; modeled fully stacked.
+export const PORK_PIE_YIELD = GAMEDATA.PORK_PIE_YIELD;
+export const PORK_PIE_TIERS = Object.keys(PORK_PIE_YIELD); // T7, T7.1, T7.2, T7.3
+export const GATHERING_YIELD = GAMEDATA.GATHERING_YIELD;
+export const GEAR_TIERS = Object.keys(GATHERING_YIELD.AVALON_TOOL);
+export const GEAR_PIECES = Object.keys(GATHERING_YIELD.GEAR_PER_STACK); // HEAD, CHEST, FEET
+export const NODE_TIERS = Object.keys(FAMEVALUE_BASE);
+
+export function yieldBonusByTier(buffs) {
+  const gearTierNum = tierNum(buffs.gatheringGear.tier);
+  const toolTierNum = tierNum(buffs.toolTier);
+  const bonusByTier = {};
+  for (const nodeTier of NODE_TIERS) {
+    const n = tierNum(nodeTier);
+    let bonus = 0;
+    if (buffs.porkPie.enabled) bonus += PORK_PIE_YIELD[buffs.porkPie.tier];
+    if (buffs.avalonianTool && n <= toolTierNum) bonus += GATHERING_YIELD.AVALON_TOOL[buffs.toolTier];
+    if (n <= gearTierNum) {
+      for (const piece of GEAR_PIECES) {
+        if (buffs.gatheringGear.equipped[piece]) {
+          bonus += GATHERING_YIELD.GEAR_PER_STACK[piece][buffs.gatheringGear.tier] * GATHERING_YIELD.GEAR_MAX_STACKS;
+        }
+      }
+    }
+    bonusByTier[nodeTier] = bonus;
+  }
+  return bonusByTier;
+}
+
 export const GATHERING_FAME_FACTOR = {
   royal: GAMEDATA.GATHERING_FAME_FACTOR.safe, // safe/yellow/orange/red all 1.0 in source
   outlands: {
@@ -244,12 +285,12 @@ export const CATEGORY_DEFAULTS = {
 };
 
 // --- Optional fame buffs (user-tunable, all default OFF) -------------------
-// Each is a flat multiplier on fame_amount only -- they don't change
-// gathering speed/time, matching their real in-game behavior. Combine
-// multiplicatively with each other and with gatheringfamefactor.
+// Premium and Learning Points are flat multipliers on fame_amount only --
+// they don't change gathering speed/time, matching their real in-game
+// behavior. They multiply with each other, with (1 + yield) and with
+// gatheringfamefactor. (Pork Pie lives with the other yield sources above:
+// the game files show it's a gathering-yield buff, not a fame one.)
 
-export const PORK_PIE_TIERS = ['T7', 'T7.1', 'T7.2', 'T7.3'];
-export const PORK_PIE_MULTIPLIER = { T7: 1.15, 'T7.1': 1.175, 'T7.2': 1.2, 'T7.3': 1.225 };
 export const PREMIUM_MULTIPLIER = 1.5;
 export const LEARNING_POINTS_MAX_NODES = 5;
 
@@ -275,12 +316,21 @@ export function defaultBuffs() {
     // slower one-tier-up static node, but still take the mob.
     noStaticTierAbove: true,
     noMobTierAbove: false,
+    // Yield sources (see yieldBonusByTier), summed with Pork Pie above. Both
+    // default off, like the fame buffs; gear tier defaults to the top.
+    avalonianTool: false,
+    gatheringGear: {
+      tier: GEAR_TIERS[GEAR_TIERS.length - 1],
+      equipped: Object.fromEntries(GEAR_PIECES.map((piece) => [piece, false])),
+    },
   };
 }
 
+// Tier-independent fame multiplier: Premium x Learning Points. Yield (Pork Pie,
+// Avalonian tool, gear) is separate because it depends on node tier -- see
+// yieldBonusByTier.
 export function combinedBuffMultiplier(buffs) {
   let mult = 1;
-  if (buffs.porkPie.enabled) mult *= PORK_PIE_MULTIPLIER[buffs.porkPie.tier];
   if (buffs.premium.enabled) mult *= PREMIUM_MULTIPLIER;
   if (buffs.learningPoints.enabled) mult *= learningPointsMultiplier(buffs.learningPoints.nodes);
   return mult;
