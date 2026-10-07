@@ -667,5 +667,11 @@ export const GAMEDATA = {
     },
     "GEAR_MAX_STACKS": 10,
     "GEAR_PULSE_SECONDS": 30
+  },
+  "PORK_PIE_YIELD": {
+    "T7": 0.15,
+    "T7.1": 0.175,
+    "T7.2": 0.2,
+    "T7.3": 0.225
   }
 };

@@ -11,7 +11,7 @@ via [`scripts/build_gamedata.py`](../scripts/build_gamedata.py):
 | `gamedata.xml` | `gatheringfamefactor` per zone danger type |
 | `resourcedistpresets.xml` | node weights, Royal + Outlands zones |
 | `world.xml` | node weights, Roads (Avalonian tunnel) zones — see below |
-| `spells.xml` | gathering-yield bonuses of Avalonian tools and gathering gear — see below |
+| `spells.xml` | gathering-yield bonuses of Pork Pie, Avalonian tools and gathering gear — see below |
 
 All files were provided directly except `spells.xml`, which was downloaded
 from [ao-data/ao-bin-dumps](https://github.com/ao-data/ao-bin-dumps)
@@ -97,7 +97,7 @@ building this extraction:
   should use the same shared explicit rate as Yellow (85.12/12/2.4/0.48);
   only T5 gets the color-specific rate.
 
-## Gathering yield, from `spells.xml` (via `items.xml`)
+## Gathering yield (Pork Pie, tools, gear), from `spells.xml` via `items.xml`
 
 Items carry no numbers: each Avalonian tool / gathering gear piece lists a
 passive spell in its `<craftingspelllist>` (`<craftspell uniquename=..>`;
@@ -118,8 +118,15 @@ The script asserts the tier ranges above, that Avalonian values are flat,
 and that all 5 resource types are identical (so one table serves the model),
 and reads max stacks / pulse interval from the data instead of hard-coding
 them. `bufftype` only ever takes `gatheringyield` here — there are no
-gathering-speed bonuses on any tool or gear passive. Yield affects resources
-per node, not fame, so the calculator shows it as a readout only.
+gathering-speed bonuses on any tool or gear passive.
+
+**Pork Pie** (`extract_pork_pie_yield`) is the same stat. `T7_MEAL_PIE` and
+its three enchant levels each name a `FOOD_LOAD_GATHER_P5..P8` consume spell
+whose `<buffovertime type="gatheringyield">` gives +15 / 17.5 / 20 / 22.5%
+(it also grants a carry-weight bonus, unused here). It has no per-node-tier
+range, unlike the tool and gear. So Pork Pie, tool and gear are one summed
+yield term, which the model applies to fame because every extra resource
+earns its own fame (confirmed with the user; the game files can't say).
 
 Not used: `PASSIVE_BAG_YIELD_ALL_T#` (backpacks). Besides its carry-weight
 `maxload` buff it also pulses a small stacking yield effect

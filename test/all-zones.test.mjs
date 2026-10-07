@@ -7,8 +7,8 @@
 // a new/changed zone entry produces NaN, a negative rate, an empty sweep,
 // or a threshold list that isn't the zone's own real values.
 
-import { ZONES, CATEGORY_DEFAULTS, ROAD_TYPES, defaultBuffs, combinedBuffMultiplier, toolCanHarvest, toolTimeFactor, yieldBonusByTier, GEAR_PIECES, GATHERING_YIELD } from '../src/data.mjs';
-import { computeZoneSweep } from '../src/model.mjs';
+import { ZONES, CATEGORY_DEFAULTS, ROAD_TYPES, defaultBuffs, combinedBuffMultiplier, toolCanHarvest, toolTimeFactor, yieldBonusByTier, GEAR_PIECES, GATHERING_YIELD, PORK_PIE_YIELD } from '../src/data.mjs';
+import { computeZoneSweep, buildZoneStates } from '../src/model.mjs';
 
 const QUALITIES = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
 const ROAD_TYPE_WEIGHTS = Object.fromEntries(ROAD_TYPES.map((t) => [t.id, t.nodeWeights]));
@@ -72,8 +72,8 @@ for (const { def, quality, label } of variants) {
   check(Math.abs(impliedFame - last.famePerHour) < 1e-6, `${label}: famePerHour doesn't match famePerEncounter/timePerEncounter at τ=${last.tau}`);
 }
 
-// Buffs: default (all off) must be a true no-op, and each buff must
-// strictly increase fame/hour when enabled (they're all >1x multipliers).
+// Buffs: default (all off) must be a true no-op, and the tier-independent
+// fame multipliers (Premium x Learning Points) must scale fame/hour exactly.
 {
   const def = ZONES.OUT_Z7;
   const assumptions = CATEGORY_DEFAULTS.outlands;
@@ -87,10 +87,19 @@ for (const { def, quality, label } of variants) {
     'explicit buffMultiplier=1 (from defaultBuffs) changes results vs. omitting it'
   );
 
-  const allOn = { porkPie: { enabled: true, tier: 'T7.3' }, premium: { enabled: true }, learningPoints: { enabled: true, nodes: 5 } };
+  // Premium 1.5x and 5 Learning Points 5x multiply: 7.5x fame, time untouched.
+  // (Pork Pie is deliberately absent -- it's yield, covered further down.)
+  const allOn = { ...defaultBuffs(), premium: { enabled: true }, learningPoints: { enabled: true, nodes: 5 } };
+  check(Math.abs(combinedBuffMultiplier(allOn) - 7.5) < 1e-9, `Premium x 5 LP multiplier should be 7.5, got ${combinedBuffMultiplier(allOn)}`);
   const boosted = computeZoneSweep(def, 'Q3', assumptions, combinedBuffMultiplier(allOn));
-  const allIncreased = boosted.every((p, i) => p.famePerHour > baseline[i].famePerHour);
-  check(allIncreased, 'enabling all buffs did not strictly increase fame/hour at every threshold');
+  check(
+    boosted.every((p, i) => Math.abs(p.famePerHour / baseline[i].famePerHour - 7.5) < 1e-9),
+    'Premium x Learning Points should scale fame/hour by exactly 7.5x at every threshold'
+  );
+  check(
+    combinedBuffMultiplier({ ...defaultBuffs(), porkPie: { enabled: true, tier: 'T7.3' } }) === 1,
+    'Pork Pie is a yield buff and must not feed combinedBuffMultiplier'
+  );
 }
 
 // Tool tier: access rule is "own base tier at any enchant, or the base
@@ -170,8 +179,9 @@ for (const { def, quality, label } of variants) {
 // --- Gathering yield (Avalonian tool + gathering gear) -------------------------
 // Expected values are hand-copied from the per-stack table in the spec (itself
 // read from spells.xml), NOT derived from GATHERING_YIELD -- so an extraction
-// slip or a formula bug can't silently agree with itself. Yield is a readout
-// only (never fed into fame), so these cover yieldBonusByTier alone.
+// slip or a formula bug can't silently agree with itself. Yield sources are
+// summed per node tier (yieldBonusByTier), and each tier's fame is then scaled
+// by (1 + yield) in the model -- both halves are covered below.
 {
   const near = (a, b) => Math.abs(a - b) < 1e-9;
   const gearOn = (tier, pieces) => ({
@@ -217,6 +227,55 @@ for (const { def, quality, label } of variants) {
   }
   const allOn = yieldBonusByTier(buffsWith({ toolTier: 'T8', avalonianTool: true, gatheringGear: gearOn('T8', ['HEAD', 'CHEST', 'FEET']) }));
   check(near(allOn.T8, 0.90), `T8 Avalonian tool + full T8 gear should be 0.90 on T8 nodes, got ${allOn.T8}`);
+
+  // Pork Pie (a yield buff, not fame): +15/17.5/20/22.5% by enchant, and --
+  // unlike the tool and gear -- no tier cap, so a T7 pie still counts on T8 nodes.
+  const pie = { T7: 0.15, 'T7.1': 0.175, 'T7.2': 0.20, 'T7.3': 0.225 };
+  for (const [tier, expected] of Object.entries(pie)) {
+    check(near(PORK_PIE_YIELD[tier], expected), `Pork Pie ${tier} should be +${expected}, got ${PORK_PIE_YIELD[tier]}`);
+    const b = yieldBonusByTier(buffsWith({ porkPie: { enabled: true, tier } }));
+    check(Object.values(b).every((v) => near(v, expected)), `Pork Pie ${tier} should add ${expected} on every node tier, got ${JSON.stringify(b)}`);
+  }
+  const everything = yieldBonusByTier(buffsWith({
+    porkPie: { enabled: true, tier: 'T7' }, toolTier: 'T8', avalonianTool: true, gatheringGear: gearOn('T8', ['HEAD', 'CHEST', 'FEET']),
+  }));
+  check(near(everything.T8, 1.05), `Pork Pie T7 + T8 Avalonian + full T8 gear should sum to 1.05 on T8 nodes, got ${everything.T8}`);
+
+  // --- Effect on fame (model.mjs) ---
+  const def = ZONES.OUT_Z7;
+  const assumptions = CATEGORY_DEFAULTS.outlands;
+  const baseline = computeZoneSweep(def, 'Q3', assumptions);
+
+  // Uniform yield Y on every tier scales fame/hour by exactly (1 + Y): time is
+  // untouched and the threshold filter works on per-unit famevalue (unchanged).
+  const uniform = Object.fromEntries(Object.keys(everything).map((t) => [t, 0.35]));
+  const uniformSweep = computeZoneSweep(def, 'Q3', assumptions, 1, 'T8', undefined, uniform);
+  check(
+    uniformSweep.every((p, i) => near(p.famePerHour / baseline[i].famePerHour, 1.35) && near(p.timePerEncounter, baseline[i].timePerEncounter)),
+    'a uniform +35% yield should scale fame/hour by exactly 1.35x with time unchanged'
+  );
+
+  // Pork Pie T7 (+0.15) + T8 Avalonian tool (+0.20) are summed, then Premium
+  // (1.5x) multiplies: 1.5 x 1.35 = 2.025x. The old multiplicative model
+  // would have given 1.15 x 1.5 = 1.725x with the tool contributing nothing.
+  const buffs = buffsWith({ porkPie: { enabled: true, tier: 'T7' }, premium: { enabled: true }, avalonianTool: true });
+  const combined = computeZoneSweep(def, 'Q3', assumptions, combinedBuffMultiplier(buffs), 'T8', undefined, yieldBonusByTier(buffs));
+  check(
+    combined.every((p, i) => near(p.famePerHour / baseline[i].famePerHour, 2.025)),
+    'Pork Pie T7 + T8 Avalonian + Premium should scale fame/hour by 1.5 x (1 + 0.15 + 0.20) = 2.025x'
+  );
+
+  // Non-uniform yield: each tier's states scale by their own (1 + yield). Check
+  // famePerEncounter against the baseline per-state fame, summed by hand.
+  const perTier = { T5: 0.5, T6: 0.2, T7: 0, T8: 0 };
+  const baseStates = buildZoneStates(def, 'Q3', assumptions);
+  const sweep = computeZoneSweep(def, 'Q3', assumptions, 1, 'T8', undefined, perTier);
+  for (const point of sweep) {
+    const expected = baseStates
+      .filter((s) => s.famevalue >= point.tau)
+      .reduce((sum, s) => sum + s.weight * s.fameAmount * (1 + (perTier[s.tier] ?? 0)), 0);
+    check(near(point.famePerEncounter, expected), `per-tier yield at τ=${point.tau}: expected ${expected}, got ${point.famePerEncounter}`);
+  }
 }
 
 console.log(failures === 0 ? `\nAll ${variants.length} zone/variant combinations passed.` : `\n${failures} check(s) failed.`);

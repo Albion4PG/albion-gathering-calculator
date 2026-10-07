@@ -11,8 +11,8 @@ gatheringfamefactor (gamedata.xml), Royal + Outlands node weights
 (resourcedistpresets.xml), and Roads/Avalonian-tunnel node weights per
 tunnel type (world.xml, averaged per-cluster across ~400 tunnel
 instances -- see extract_roads_node_weights), and the gathering-yield
-passives on Avalonian tools / gathering gear (items.xml -> spells.xml --
-see extract_gathering_yield).
+bonuses of Avalonian tools / gathering gear / Pork Pie (items.xml ->
+spells.xml -- see extract_gathering_yield, extract_pork_pie_yield).
 """
 import json
 import re
@@ -360,6 +360,36 @@ def extract_gathering_yield(items_xml, spells_xml):
     }
 
 
+# --- 8. Pork Pie gathering yield (items.xml -> spells.xml) ------------------
+#
+# Pork Pie is the T7 pie (T7_MEAL_PIE). The base item and each enchant level
+# (@1..@3) grant a different FOOD_LOAD_GATHER_P# spell whose
+# <buffovertime type="gatheringyield"> is the same stat as the Avalonian-tool
+# and gear bonuses above (plus a carry-weight bonus, unused here). Unlike
+# those, it has no per-node-tier range -- it applies to every node tier.
+
+def extract_pork_pie_yield(items_xml, spells_xml):
+    m = re.search(r'<consumableitem uniquename="T7_MEAL_PIE"([^>]*)>(.*?)</consumableitem>', items_xml, re.S)
+    assert m, "T7_MEAL_PIE not found in items.xml"
+    base_spell = re.search(r'consumespell="([A-Z0-9_]+)"', m.group(1))
+    assert base_spell, "T7_MEAL_PIE has no consumespell"
+    spell_by_label = {"T7": base_spell.group(1)}
+    for level, spell in re.findall(
+        r'<enchantment enchantmentlevel="(\d)"[^>]*consumespell="([A-Z0-9_]+)"', m.group(2)
+    ):
+        spell_by_label[f"T7.{level}"] = spell
+    assert set(spell_by_label) == {"T7", "T7.1", "T7.2", "T7.3"}, f"unexpected pie enchant levels: {sorted(spell_by_label)}"
+
+    result = {}
+    for label, spell in spell_by_label.items():
+        block, _ = spell_block(spells_xml, "activespell", spell)
+        values = re.findall(r'<buffovertime [^>]*type="gatheringyield" value="([0-9.]+)"', block)
+        assert len(values) == 1, f"{spell}: expected exactly one gatheringyield buff, got {values}"
+        result[label] = float(values[0])
+    assert list(result.values()) == sorted(result.values()), f"Pork Pie yield should rise with enchant: {result}"
+    return result
+
+
 # --- main --------------------------------------------------------------
 
 def main():
@@ -380,6 +410,7 @@ def main():
     outlands_weights = extract_outlands_node_weights(presets_xml)
     roads_weights = extract_roads_node_weights(world_xml)
     gathering_yield = extract_gathering_yield(items_xml, spells_xml)
+    pork_pie_yield = extract_pork_pie_yield(items_xml, spells_xml)
 
     data = {
         "FAMEVALUE_BASE": famevalue_base,
@@ -393,6 +424,7 @@ def main():
         "OUTLANDS_NODE_WEIGHTS_BY_DECLARED_TIER": outlands_weights,
         "ROADS_NODE_WEIGHTS_BY_TYPE": roads_weights,
         "GATHERING_YIELD": gathering_yield,
+        "PORK_PIE_YIELD": pork_pie_yield,
     }
 
     header = (

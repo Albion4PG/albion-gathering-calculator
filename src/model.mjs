@@ -10,7 +10,7 @@ import { CHARGES, STATIC_TICK, ELEMENTAL_TICK, famevalue, toolCanHarvest, toolTi
  * @param {object} zoneDef - one entry from ZONES in data.mjs
  * @param {string|undefined} quality - 'Q1'..'Q6', only used if zoneDef.requiresQuality
  * @param {{search_time:number, mob_proportion:number, charge_fraction_enchanted:number, kill_time:number}} assumptions
- * @param {number} [buffMultiplier=1] - combined Premium/Pork Pie/Learning
+ * @param {number} [buffMultiplier=1] - tier-independent Premium x Learning
  *   Points multiplier (see data.mjs combinedBuffMultiplier). Applies to
  *   fame_amount only, not time -- these are fame buffs, not speed buffs.
  * @param {string} [toolTier='T8'] - 'T4'..'T8'. There's no such thing as
@@ -23,9 +23,13 @@ import { CHARGES, STATIC_TICK, ELEMENTAL_TICK, famevalue, toolCanHarvest, toolTi
  *   so these only affect that one state: refusing a type forces the blend
  *   fully onto the other type (mob_proportion pinned to 1 or 0 for that
  *   state alone); refusing both drops the state entirely, as if unreachable.
+ * @param {Object<string, number>} [yieldBonusByTier] - summed gathering-yield
+ *   bonus per node tier, e.g. {T7: 0.5} (see data.mjs yieldBonusByTier).
+ *   Every extra resource earns its own fame, so each tier's fame_amount is
+ *   scaled by (1 + yield); time is unaffected. Missing tiers count as 0.
  * @returns {Array<{tier:string, enchant:number, famevalue:number, weight:number, fameAmount:number, blendedTime:number}>}
  */
-export function buildZoneStates(zoneDef, quality, assumptions, buffMultiplier = 1, toolTier = 'T8', tierAboveExclusions = {}) {
+export function buildZoneStates(zoneDef, quality, assumptions, buffMultiplier = 1, toolTier = 'T8', tierAboveExclusions = {}, yieldBonusByTier = {}) {
   const { mob_proportion, charge_fraction_enchanted, kill_time } = assumptions;
   const { noStaticTierAbove = false, noMobTierAbove = false } = tierAboveExclusions;
   const gff = zoneDef.getGff(quality);
@@ -41,6 +45,7 @@ export function buildZoneStates(zoneDef, quality, assumptions, buffMultiplier = 
     const staticTick = STATIC_TICK[tier];
     const elemTick = ELEMENTAL_TICK[tier];
     const timeFactor = toolTimeFactor(tier, toolTier);
+    const yieldMultiplier = 1 + (yieldBonusByTier[tier] ?? 0);
     const isTierAbove = Number(String(tier).replace('T', '')) === toolTierNum + 1;
 
     for (let e = 0; e < 4; e++) {
@@ -56,7 +61,7 @@ export function buildZoneStates(zoneDef, quality, assumptions, buffMultiplier = 
       if (isTierAbove && noStaticTierAbove) effectiveMobProportion = 1;
       else if (isTierAbove && noMobTierAbove) effectiveMobProportion = 0;
 
-      const fameAmount = fv * charges * mult * gff * buffMultiplier;
+      const fameAmount = fv * charges * mult * gff * buffMultiplier * yieldMultiplier;
       const staticTime = charges * staticTick * mult * timeFactor;
       const mobTime = kill_time + charges * elemTick * mult * timeFactor;
       const blendedTime = effectiveMobProportion * mobTime + (1 - effectiveMobProportion) * staticTime;
@@ -111,7 +116,7 @@ export function computeThresholdSweep(states, search_time) {
 }
 
 /** Convenience: zone + quality + assumptions -> sweep, in one call. */
-export function computeZoneSweep(zoneDef, quality, assumptions, buffMultiplier = 1, toolTier = 'T8', tierAboveExclusions) {
-  const states = buildZoneStates(zoneDef, quality, assumptions, buffMultiplier, toolTier, tierAboveExclusions);
+export function computeZoneSweep(zoneDef, quality, assumptions, buffMultiplier = 1, toolTier = 'T8', tierAboveExclusions, yieldBonusByTier) {
+  const states = buildZoneStates(zoneDef, quality, assumptions, buffMultiplier, toolTier, tierAboveExclusions, yieldBonusByTier);
   return computeThresholdSweep(states, assumptions.search_time);
 }
